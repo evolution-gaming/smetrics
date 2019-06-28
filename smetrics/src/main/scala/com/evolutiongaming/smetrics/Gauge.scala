@@ -1,7 +1,7 @@
 package com.evolutiongaming.smetrics
 
-import cats.Applicative
 import cats.implicits._
+import cats.{Applicative, ~>}
 
 trait Gauge[F[_]] {
 
@@ -23,5 +23,18 @@ object Gauge {
     def dec(value: Double) = unit
 
     def set(value: Double) = unit
+  }
+
+
+  implicit class GaugeOps[F[_]](val self: Gauge[F]) extends AnyVal {
+
+    def mapK[G[_]](f: F ~> G): Gauge[G] = new Gauge[G] {
+
+      def inc(value: Double) = f(self.inc(value))
+
+      def dec(value: Double) = f(self.dec(value))
+
+      def set(value: Double) = f(self.set(value))
+    }
   }
 }

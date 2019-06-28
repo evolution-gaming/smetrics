@@ -13,12 +13,14 @@ trait CollectorRegistry[F[_]] {
     magnet: LabelsMagnet[A, B]
   ): Resource[F, B[Gauge[F]]]
 
+
   def counter[A, B[_]](
     name: String,
     help: String,
     labels: A)(implicit
     magnet: LabelsMagnet[A, B]
   ): Resource[F, B[Counter[F]]]
+
 
   def summary[A, B[_]](
     name: String,
@@ -27,6 +29,15 @@ trait CollectorRegistry[F[_]] {
     labels: A)(implicit
     magnet: LabelsMagnet[A, B]
   ): Resource[F, B[Summary[F]]]
+
+
+  def histogram[A, B[_]](
+    name: String,
+    help: String,
+    buckets: Buckets,
+    labels: A)(implicit
+    magnet: LabelsMagnet[A, B]
+  ): Resource[F, B[Histogram[F]]]
 }
 
 object CollectorRegistry {
@@ -35,13 +46,15 @@ object CollectorRegistry {
     const[F](
       Gauge.empty[F].pure[F],
       Counter.empty[F].pure[F],
-      Summary.empty[F].pure[F])
+      Summary.empty[F].pure[F],
+      Histogram.empty[F].pure[F])
   }
 
   def const[F[_] : Monad](
     gauge: F[Gauge[F]],
     counter: F[Counter[F]],
-    summary: F[Summary[F]]
+    summary: F[Summary[F]],
+    histogram: F[Histogram[F]]
   ): CollectorRegistry[F] = {
 
     val gauge1 = gauge
@@ -49,6 +62,8 @@ object CollectorRegistry {
     val counter1 = counter
 
     val summary1 = summary
+
+    val histogram1 = histogram
 
     def apply[A, B[_], C](collector: F[C])(implicit magnet: LabelsMagnet[A, B]) = {
       val result = for {
@@ -87,6 +102,16 @@ object CollectorRegistry {
         magnet: LabelsMagnet[A, B]
       ) = {
         apply(summary1)
+      }
+
+      def histogram[A, B[_]](
+        name: String,
+        help: String,
+        buckets: Buckets,
+        labels: A)(implicit
+        magnet: LabelsMagnet[A, B]
+      ) = {
+        apply(histogram1)
       }
     }
   }

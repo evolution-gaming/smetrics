@@ -3,8 +3,7 @@ import sbt._
 object Dependencies {
 
   val prometheus    = "io.prometheus"        % "simpleclient" % "0.6.0"
-  val scalatest     = "org.scalatest"       %% "scalatest"    % "3.0.7"
-  val `cats-par`    = "io.chrisdavenport"   %% "cats-par"     % "0.2.1" // TODO
+  val scalatest     = "org.scalatest"       %% "scalatest"    % "3.0.8"
   val `cats-helper` = "com.evolutiongaming" %% "cats-helper"  % "0.0.14"
 
   object Cats {

@@ -54,6 +54,7 @@ object CollectorRegistryPrometheus {
         apply[A, B, P.Gauge.Child, P.Gauge, P.Gauge.Builder, Gauge[F]](gauge, labels)
       }
 
+
       def counter[A, B[_]](
         name: String,
         help: String,
@@ -66,6 +67,7 @@ object CollectorRegistryPrometheus {
 
         apply[A, B, P.Counter.Child, P.Counter, P.Counter.Builder, Counter[F]](counter, labels)
       }
+
 
       def summary[A, B[_]](
         name: String,
@@ -85,6 +87,23 @@ object CollectorRegistryPrometheus {
         }
 
         apply[A, B, P.Summary.Child, P.Summary, P.Summary.Builder, Summary[F]](summary, labels)
+      }
+
+
+      def histogram[A, B[_]](
+        name: String,
+        help: String,
+        buckets: Buckets,
+        labels: A)(implicit
+        magnet: LabelsMagnet[A, B]
+      ) = {
+
+        val histogram = P.Histogram.build()
+          .name(name)
+          .help(help)
+          .buckets(buckets.values.toList: _ *)
+
+        apply[A, B, P.Histogram.Child, P.Histogram, P.Histogram.Builder, Histogram[F]](histogram, labels)
       }
     }
   }
@@ -143,6 +162,20 @@ object CollectorRegistryPrometheus {
 
   private implicit def summeryChildPrometheusToSummery[F[_] : Sync]: P.Summary.Child => Summary[F] = (a: P.Summary.Child) => {
     new Summary[F] {
+      def observe(value: Double) = Sync[F].delay { a.observe(value) }
+    }
+  }
+
+
+  private implicit def histogramPrometheusToHistogram[F[_] : Sync]: P.Histogram => Histogram[F] = (a: P.Histogram) => {
+    new Histogram[F] {
+      def observe(value: Double) = Sync[F].delay { a.observe(value) }
+    }
+  }
+
+
+  private implicit def histogramChildPrometheusToHistogram[F[_] : Sync]: P.Histogram.Child => Histogram[F] = (a: P.Histogram.Child) => {
+    new Histogram[F] {
       def observe(value: Double) = Sync[F].delay { a.observe(value) }
     }
   }

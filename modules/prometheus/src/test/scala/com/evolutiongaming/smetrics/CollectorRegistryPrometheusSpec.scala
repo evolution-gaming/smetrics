@@ -1,5 +1,6 @@
 package com.evolutiongaming.smetrics
 
+import cats.arrow.FunctionK
 import cats.data.{NonEmptyList => Nel}
 import cats.effect.{IO, Sync}
 import cats.implicits._
@@ -23,6 +24,10 @@ class CollectorRegistryPrometheusSpec extends AsyncFunSuite with Matchers {
     testSummary[IO].run()
   }
 
+  test("histogram") {
+    testHistogram[IO].run()
+  }
+
   private def testGauge[F[_] : Sync] = {
 
     val registryP = new P.CollectorRegistry()
@@ -37,7 +42,7 @@ class CollectorRegistryPrometheusSpec extends AsyncFunSuite with Matchers {
       registryP.value[F]("gauge", Nel.of("l1"), Nel.of(value))
     }
 
-    gauge.use { gauge =>
+    gauge.mapK(FunctionK.id).use { gauge =>
       for {
         _  <- gauge.labels("v1").set(2.0)
         _  <- gauge.labels("v2").inc(2.0)
@@ -68,7 +73,7 @@ class CollectorRegistryPrometheusSpec extends AsyncFunSuite with Matchers {
       registryP.value[F]("counter", Nel.of("l1", "l2"), Nel.of(value, value))
     }
 
-    counter.use { counter =>
+    counter.mapK(FunctionK.id).use { counter =>
       for {
         _  <- counter.labels("v1", "v1").inc(2.0)
         _  <- counter.labels("v1", "v1").inc()
@@ -90,18 +95,42 @@ class CollectorRegistryPrometheusSpec extends AsyncFunSuite with Matchers {
     val registryP = new P.CollectorRegistry()
     val registry = CollectorRegistryPrometheus[F](registryP)
 
-    val counter = registry.summary(
+    val summary = registry.summary(
       name = "summary",
       help = "help_test",
       labels = LabelNames(),
       quantiles = Quantiles(Quantile(value = 0.5, error = 0.05)))
 
-    counter.use { counter =>
+    summary.mapK(FunctionK.id).use { summary =>
       for {
-        _     <- counter.observe(1.0)
-        _     <- counter.observe(2.0)
+        _     <- summary.observe(1.0)
+        _     <- summary.observe(2.0)
         sum   <- registryP.value[F]("summary_sum")
         count <- registryP.value[F]("summary_count")
+      } yield {
+        sum shouldEqual 3.0
+        count shouldEqual 2.0
+      }
+    }
+  }
+
+
+  private def testHistogram[F[_] : Sync] = {
+    val registryP = new P.CollectorRegistry()
+    val registry = CollectorRegistryPrometheus[F](registryP)
+
+    val histogram = registry.histogram(
+      name = "histogram",
+      help = "help_test",
+      labels = LabelNames(),
+      buckets = Buckets.linear(1.0, 1.0, 3))
+
+    histogram.mapK(FunctionK.id).use { histogram =>
+      for {
+        _     <- histogram.observe(1.0)
+        _     <- histogram.observe(2.0)
+        sum   <- registryP.value[F]("histogram_sum")
+        count <- registryP.value[F]("histogram_count")
       } yield {
         sum shouldEqual 3.0
         count shouldEqual 2.0
