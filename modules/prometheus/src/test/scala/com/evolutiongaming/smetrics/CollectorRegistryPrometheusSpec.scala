@@ -122,15 +122,19 @@ class CollectorRegistryPrometheusSpec extends AsyncFunSuite with Matchers {
     val histogram = registry.histogram(
       name = "histogram",
       help = "help_test",
-      labels = LabelNames(),
+      labels = LabelNames("l1", "l2", "l3"),
       buckets = Buckets.linear(1.0, 1.0, 3))
+
+    def value(value: String) = {
+      registryP.value[F](value, Nel.of("l1", "l2", "l3"), Nel.of("n1", "n2", "n3"))
+    }
 
     histogram.mapK(FunctionK.id).use { histogram =>
       for {
-        _     <- histogram.observe(1.0)
-        _     <- histogram.observe(2.0)
-        sum   <- registryP.value[F]("histogram_sum")
-        count <- registryP.value[F]("histogram_count")
+        _     <- histogram.labels("n1", "n2", "n3").observe(1.0)
+        _     <- histogram.labels("n1", "n2", "n3").observe(2.0)
+        sum   <- value("histogram_sum")
+        count <- value("histogram_count")
       } yield {
         sum shouldEqual 3.0
         count shouldEqual 2.0
