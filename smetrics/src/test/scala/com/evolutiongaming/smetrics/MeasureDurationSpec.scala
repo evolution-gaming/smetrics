@@ -6,20 +6,21 @@ import cats.Id
 import cats.effect.Clock
 import org.scalatest.{FunSuite, Matchers}
 
-import scala.concurrent.duration.TimeUnit
+import scala.concurrent.duration._
 
 class MeasureDurationSpec extends FunSuite with Matchers {
 
   import MeasureDurationSpec._
 
   test("measure duration") {
+    val measureDuration = MeasureDuration.fromClock[StateT](Clock[StateT])
     val stateT = for {
-      duration <- MeasureDuration[StateT]
+      duration <- measureDuration.start
       duration <- duration
     } yield duration
 
     val (state, duration) = stateT.run(State(List(1, 3)))
-    duration shouldEqual 2
+    duration shouldEqual 2.nanos
     state shouldEqual State.Empty
   }
 }
