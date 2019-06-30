@@ -4,6 +4,8 @@ object MetricsHelper {
 
   implicit class MetricsLongOps(val self: Long) extends AnyVal {
 
-    def toSeconds: Double = self.toDouble / 1000
+    def millisToSeconds: Double = self.toDouble / 1000
+
+    def nanosToSeconds: Double = self.toDouble / 1000000
   }
 }
