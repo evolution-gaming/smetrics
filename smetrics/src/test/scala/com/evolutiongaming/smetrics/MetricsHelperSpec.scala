@@ -9,6 +9,10 @@ class MetricsHelperSpec extends FunSuite with Matchers {
     1000000000.nanosToSeconds shouldEqual 1
   }
 
+  test("nanosToMillis") {
+    1000000.nanosToMillis shouldEqual 1
+  }
+
   test("millisToSeconds") {
     1000.millisToSeconds shouldEqual 1
   }
