@@ -2,11 +2,11 @@ package com.evolutiongaming.smetrics
 
 import java.util.concurrent.TimeUnit
 
-import cats.FlatMap
 import cats.effect.Clock
 import cats.implicits._
+import cats.{Applicative, FlatMap, ~>}
 
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
 
 trait MeasureDuration[F[_]] {
 
@@ -14,6 +14,14 @@ trait MeasureDuration[F[_]] {
 }
 
 object MeasureDuration {
+
+  def const[F[_]](value: F[F[FiniteDuration]]): MeasureDuration[F] = new MeasureDuration[F] {
+    def start = value
+  }
+
+
+  def empty[F[_] : Applicative]: MeasureDuration[F] = const(0.seconds.pure[F].pure[F])
+
 
   def apply[F[_]](implicit F: MeasureDuration[F]): MeasureDuration[F] = F
 
@@ -40,6 +48,15 @@ object MeasureDuration {
           end - start
         }
       }
+    }
+  }
+
+
+  implicit class MeasureDurationOps[F[_]](val self: MeasureDuration[F]) extends AnyVal {
+
+    def mapK[G[_]](f: F ~> G)(implicit F: FlatMap[F]): MeasureDuration[G] = new MeasureDuration[G] {
+
+      val start = f(self.start.map(f.apply))
     }
   }
 }
