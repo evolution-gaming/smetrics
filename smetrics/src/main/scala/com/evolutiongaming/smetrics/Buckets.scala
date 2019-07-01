@@ -7,17 +7,6 @@ import scala.annotation.tailrec
 final case class Buckets(values: Nel[Double])
 
 object Buckets {
-  /*
-
-    public Builder exponentialBuckets(double start, double factor, int count) {
-      buckets = new double[count];
-      for (int i = 0; i < count; i++) {
-        buckets[i] = start * Math.pow(factor, i);
-      }
-      return this;
-    }
-  */
-
 
   def linear(start: Double, width: Double, count: Int): Buckets = {
 
