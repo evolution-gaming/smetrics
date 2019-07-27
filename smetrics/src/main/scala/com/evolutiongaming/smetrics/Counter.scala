@@ -12,17 +12,11 @@ object Counter {
 
   def empty[F[_] : Applicative]: Counter[F] = const(().pure[F])
 
-  def const[F[_]](unit: F[Unit]): Counter[F] = new Counter[F] {
-
-    def inc(value: Double) = unit
-  }
+  def const[F[_]](unit: F[Unit]): Counter[F] = (_: Double) => unit
 
 
   implicit class CounterOps[F[_]](val self: Counter[F]) extends AnyVal {
 
-    def mapK[G[_]](f: F ~> G): Counter[G] = new Counter[G] {
-
-      def inc(value: Double) = f(self.inc(value))
-    }
+    def mapK[G[_]](f: F ~> G): Counter[G] = (value: Double) => f(self.inc(value))
   }
 }

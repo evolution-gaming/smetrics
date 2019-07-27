@@ -12,17 +12,11 @@ object Summary {
 
   def empty[F[_] : Applicative]: Summary[F] = const(().pure[F])
 
-  def const[F[_]](unit: F[Unit]): Summary[F] = new Summary[F] {
-
-    def observe(value: Double) = unit
-  }
+  def const[F[_]](unit: F[Unit]): Summary[F] = (_: Double) => unit
 
 
   implicit class SummaryOps[F[_]](val self: Summary[F]) extends AnyVal {
 
-    def mapK[G[_]](f: F ~> G): Summary[G] = new Summary[G] {
-
-      def observe(value: Double) = f(self.observe(value))
-    }
+    def mapK[G[_]](f: F ~> G): Summary[G] = (value: Double) => f(self.observe(value))
   }
 }

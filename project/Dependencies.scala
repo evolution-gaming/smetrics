@@ -4,7 +4,7 @@ object Dependencies {
 
   val prometheus    = "io.prometheus"        % "simpleclient" % "0.6.0"
   val scalatest     = "org.scalatest"       %% "scalatest"    % "3.0.8"
-  val `cats-helper` = "com.evolutiongaming" %% "cats-helper"  % "0.0.14"
+  val `cats-helper` = "com.evolutiongaming" %% "cats-helper"  % "0.0.23"
 
   object Cats {
     private val version = "1.6.1"
