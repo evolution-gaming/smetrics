@@ -8,18 +8,18 @@ lazy val commonSettings = Seq(
   organizationHomepage := Some(url("http://evolutiongaming.com")),
   bintrayOrganization := Some("evolutiongaming"),
   scalaVersion := crossScalaVersions.value.last,
-  crossScalaVersions := Seq("2.12.8"),
+  crossScalaVersions := Seq("2.12.10", "2.13.0"),
   resolvers += Resolver.bintrayRepo("evolutiongaming", "maven"),
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
   releaseCrossBuild := true,
-  scalacOptions in(Compile, doc) += "-no-link-warnings")
+  Compile / doc / scalacOptions += "-no-link-warnings")
 
 
 lazy val root = (project
   in file(".")
   settings commonSettings
   settings (
-    skip in publish := true,
+    publish / skip := true,
     name := "smetrics")
   aggregate(smetrics, prometheus))
 
