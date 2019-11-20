@@ -8,7 +8,7 @@ lazy val commonSettings = Seq(
   organizationHomepage := Some(url("http://evolutiongaming.com")),
   bintrayOrganization := Some("evolutiongaming"),
   scalaVersion := crossScalaVersions.value.last,
-  crossScalaVersions := Seq("2.12.10", "2.13.0"),
+  crossScalaVersions := Seq("2.12.10", "2.13.1"),
   resolvers += Resolver.bintrayRepo("evolutiongaming", "maven"),
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
   releaseCrossBuild := true,
@@ -26,7 +26,7 @@ lazy val root = (project
 lazy val smetrics = (project
   in file("smetrics")
   settings commonSettings
-  settings(                                                                          
+  settings(
     name := "smetrics",
     libraryDependencies ++= Seq(
       Cats.core,
