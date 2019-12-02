@@ -4,11 +4,12 @@ import java.util.concurrent.TimeUnit
 
 import cats.Id
 import cats.effect.Clock
-import org.scalatest.{FunSuite, Matchers}
 
 import scala.concurrent.duration._
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 
-class MeasureDurationSpec extends FunSuite with Matchers {
+class MeasureDurationSpec extends AnyFunSuite with Matchers {
 
   import MeasureDurationSpec._
 
