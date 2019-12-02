@@ -1,9 +1,10 @@
 package com.evolutiongaming.smetrics
 
 import com.evolutiongaming.smetrics.MetricsHelper._
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 
-class MetricsHelperSpec extends FunSuite with Matchers {
+class MetricsHelperSpec extends AnyFunSuite with Matchers {
 
   test("nanosToSeconds") {
     1000000000.nanosToSeconds shouldEqual 1

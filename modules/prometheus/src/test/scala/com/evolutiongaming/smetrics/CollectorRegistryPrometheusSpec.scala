@@ -6,7 +6,8 @@ import cats.effect.{IO, Sync}
 import cats.implicits._
 import com.evolutiongaming.smetrics.IOSuite._
 import io.prometheus.{client => P}
-import org.scalatest.{AsyncFunSuite, Matchers}
+import org.scalatest.funsuite.AsyncFunSuite
+import org.scalatest.matchers.should.Matchers
 
 class CollectorRegistryPrometheusSpec extends AsyncFunSuite with Matchers {
 

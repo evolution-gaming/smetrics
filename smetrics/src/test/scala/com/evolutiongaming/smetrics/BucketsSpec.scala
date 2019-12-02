@@ -1,9 +1,10 @@
 package com.evolutiongaming.smetrics
 
 import cats.data.{NonEmptyList => Nel}
-import org.scalatest.{FunSuite, Matchers}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 
-class BucketsSpec extends FunSuite with Matchers {
+class BucketsSpec extends AnyFunSuite with Matchers {
 
   for {
     (start, width, count, expected) <- List(
