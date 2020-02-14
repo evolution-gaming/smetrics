@@ -9,9 +9,9 @@ import io.prometheus.{client => P}
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
-class PrometheusSpec extends AsyncFunSuite with Matchers {
+class CollectorRegistryPrometheusSpec extends AsyncFunSuite with Matchers {
 
-  import PrometheusSpec._
+  import CollectorRegistryPrometheusSpec._
 
   test("gauge") {
     testGauge[IO].run()
@@ -32,7 +32,7 @@ class PrometheusSpec extends AsyncFunSuite with Matchers {
   private def testGauge[F[_] : Sync] = {
 
     val registryP = new P.CollectorRegistry()
-    val registry = Prometheus[F](registryP).registry
+    val registry = CollectorRegistryPrometheus[F](registryP)
 
     val gauge = registry.gauge(
       name = "gauge",
@@ -63,7 +63,7 @@ class PrometheusSpec extends AsyncFunSuite with Matchers {
   private def testCounter[F[_] : Sync] = {
 
     val registryP = new P.CollectorRegistry()
-    val registry = Prometheus[F](registryP).registry
+    val registry = CollectorRegistryPrometheus[F](registryP)
 
     val counter = registry.counter(
       name = "counter",
@@ -94,7 +94,7 @@ class PrometheusSpec extends AsyncFunSuite with Matchers {
   private def testSummary[F[_] : Sync] = {
 
     val registryP = new P.CollectorRegistry()
-    val registry = Prometheus[F](registryP).registry
+    val registry = CollectorRegistryPrometheus[F](registryP)
 
     val summary = registry.summary(
       name = "summary",
@@ -118,7 +118,7 @@ class PrometheusSpec extends AsyncFunSuite with Matchers {
 
   private def testHistogram[F[_] : Sync] = {
     val registryP = new P.CollectorRegistry()
-    val registry = Prometheus[F](registryP).registry
+    val registry = CollectorRegistryPrometheus[F](registryP)
 
     val histogram = registry.histogram(
       name = "histogram",
@@ -144,7 +144,7 @@ class PrometheusSpec extends AsyncFunSuite with Matchers {
   }
 }
 
-object PrometheusSpec {
+object CollectorRegistryPrometheusSpec {
 
   implicit class CollectorRegistryOps(val self: P.CollectorRegistry) extends AnyVal {
 
