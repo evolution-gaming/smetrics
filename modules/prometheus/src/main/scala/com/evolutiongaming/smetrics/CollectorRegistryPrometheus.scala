@@ -1,8 +1,11 @@
 package com.evolutiongaming.smetrics
 
+import java.io.StringWriter
+
 import cats.effect.{Resource, Sync}
 import cats.implicits._
 import io.prometheus.client.Collector
+import io.prometheus.client.exporter.common.TextFormat
 import io.prometheus.{client => P}
 
 object CollectorRegistryPrometheus {
@@ -105,6 +108,13 @@ object CollectorRegistryPrometheus {
 
         apply[A, B, P.Histogram.Child, P.Histogram, P.Histogram.Builder, Histogram[F]](histogram, labels)
       }
+
+      def write004: F[String] = Sync[F].delay {
+        val writer = new StringWriter
+        TextFormat.write004(writer, collectorRegistry.metricFamilySamples)
+        writer.toString
+      }
+
     }
   }
 

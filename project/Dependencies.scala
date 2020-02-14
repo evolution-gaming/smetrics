@@ -2,7 +2,9 @@ import sbt._
 
 object Dependencies {
 
-  val prometheus    = "io.prometheus"        % "simpleclient" % "0.8.0"
+  val prometheusVersion = "0.8.0"
+  val prometheus = "io.prometheus" % "simpleclient" % prometheusVersion
+  val prometheusCommon = "io.prometheus" % "simpleclient_common" % prometheusVersion
   val scalatest     = "org.scalatest"       %% "scalatest"    % "3.1.0"
   val `cats-helper` = "com.evolutiongaming" %% "cats-helper"  % "1.5.2"
 
