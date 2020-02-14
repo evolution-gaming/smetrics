@@ -42,4 +42,5 @@ lazy val prometheus = (project
     name := "smetrics-prometheus",
     libraryDependencies ++= Seq(
       Dependencies.prometheus,
+      Dependencies.prometheusCommon,
       scalatest % Test)))
