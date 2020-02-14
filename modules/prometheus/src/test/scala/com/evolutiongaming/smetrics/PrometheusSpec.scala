@@ -45,9 +45,9 @@ class PrometheusSpec extends AsyncFunSuite with Matchers {
 
     gauge.mapK(FunctionK.id).use { gauge =>
       for {
-        _  <- gauge.labels("v1").set(2.0)
-        _  <- gauge.labels("v2").inc(2.0)
-        _  <- gauge.labels("v2").dec(1.0)
+        _ <- gauge.labels("v1").set(2.0)
+        _ <- gauge.labels("v2").inc(2.0)
+        _ <- gauge.labels("v2").dec(1.0)
         v1 <- value("v1")
         v2 <- value("v2")
         v3 <- value("v3")
@@ -76,9 +76,9 @@ class PrometheusSpec extends AsyncFunSuite with Matchers {
 
     counter.mapK(FunctionK.id).use { counter =>
       for {
-        _  <- counter.labels("v1", "v1").inc(2.0)
-        _  <- counter.labels("v1", "v1").inc()
-        _  <- counter.labels("v2", "v2").inc(1.0)
+        _ <- counter.labels("v1", "v1").inc(2.0)
+        _ <- counter.labels("v1", "v1").inc()
+        _ <- counter.labels("v2", "v2").inc(1.0)
         v1 <- value("v1")
         v2 <- value("v2")
         v3 <- value("v3")
@@ -104,9 +104,9 @@ class PrometheusSpec extends AsyncFunSuite with Matchers {
 
     summary.mapK(FunctionK.id).use { summary =>
       for {
-        _     <- summary.observe(1.0)
-        _     <- summary.observe(2.0)
-        sum   <- registryP.value[F]("summary_sum")
+        _ <- summary.observe(1.0)
+        _ <- summary.observe(2.0)
+        sum <- registryP.value[F]("summary_sum")
         count <- registryP.value[F]("summary_count")
       } yield {
         sum shouldEqual 3.0
@@ -132,9 +132,9 @@ class PrometheusSpec extends AsyncFunSuite with Matchers {
 
     histogram.mapK(FunctionK.id).use { histogram =>
       for {
-        _     <- histogram.labels("n1", "n2", "n3").observe(1.0)
-        _     <- histogram.labels("n1", "n2", "n3").observe(2.0)
-        sum   <- value("histogram_sum")
+        _ <- histogram.labels("n1", "n2", "n3").observe(1.0)
+        _ <- histogram.labels("n1", "n2", "n3").observe(2.0)
+        sum <- value("histogram_sum")
         count <- value("histogram_count")
       } yield {
         sum shouldEqual 3.0
