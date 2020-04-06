@@ -3,7 +3,6 @@ package com.evolutiongaming.smetrics
 import cats.effect._
 import cats.implicits._
 import com.evolutiongaming.smetrics.MetricsHelper._
-import com.evolutiongaming.smetrics.{CollectorRegistry, _}
 import org.http4s.metrics.TerminationType.{Abnormal, Error, Timeout}
 import org.http4s.metrics.{MetricsOps, TerminationType}
 import org.http4s.{Method, Status}
