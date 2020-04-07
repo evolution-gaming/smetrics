@@ -1,7 +1,8 @@
 package com.evolutiongaming.smetrics
 
 import cats.effect._
-import cats.implicits._
+import cats.syntax.all._
+import cats.{Applicative, FlatMap}
 import com.evolutiongaming.smetrics.MetricsHelper._
 import org.http4s.metrics.TerminationType.{Abnormal, Error, Timeout}
 import org.http4s.metrics.{MetricsOps, TerminationType}
@@ -9,28 +10,28 @@ import org.http4s.{Method, Status}
 
 object Http4sMetricsOps {
 
-  def of[F[_] : Sync](
-    cr: CollectorRegistry[F],
-    prefix: String
+  def of[F[_] : FlatMap : Applicative](
+    collectorRegistry: CollectorRegistry[F],
+    prefix: String = "http"
   ): Resource[F, MetricsOps[F]] =
     for {
-      responseDuration <- cr.summary(
+      responseDuration <- collectorRegistry.summary(
         s"${ prefix }_response_duration_seconds",
         "Response Duration in seconds.",
         Quantiles(Quantile(value = 0.9, error = 0.05), Quantile(value = 0.99, error = 0.005)),
         LabelNames("classifier", "method", "phase")
       )
-      activeRequests <- cr.gauge(
+      activeRequests <- collectorRegistry.gauge(
         s"${ prefix }_active_request_count",
         "Total Active Requests.",
         LabelNames("classifier")
       )
-      requests <- cr.counter(
+      requests <- collectorRegistry.counter(
         s"${ prefix }_request_count",
         "Total Requests.",
         LabelNames("classifier", "method", "status")
       )
-      abnormal <- cr.summary(
+      abnormal <- collectorRegistry.summary(
         s"${ prefix }_abnormal_terminations",
         "Total Abnormal Terminations.",
         Quantiles(Quantile(value = 0.9, error = 0.05), Quantile(value = 0.99, error = 0.005)),
