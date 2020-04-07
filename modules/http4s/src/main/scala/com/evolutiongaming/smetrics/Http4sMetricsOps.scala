@@ -1,8 +1,8 @@
 package com.evolutiongaming.smetrics
 
+import cats.Monad
 import cats.effect._
 import cats.syntax.all._
-import cats.{Applicative, FlatMap}
 import com.evolutiongaming.smetrics.MetricsHelper._
 import org.http4s.metrics.TerminationType.{Abnormal, Error, Timeout}
 import org.http4s.metrics.{MetricsOps, TerminationType}
@@ -10,7 +10,7 @@ import org.http4s.{Method, Status}
 
 object Http4sMetricsOps {
 
-  def of[F[_] : FlatMap : Applicative](
+  def of[F[_] : Monad](
     collectorRegistry: CollectorRegistry[F],
     prefix: String = "http"
   ): Resource[F, MetricsOps[F]] =
