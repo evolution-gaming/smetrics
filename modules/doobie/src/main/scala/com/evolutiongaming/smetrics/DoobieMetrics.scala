@@ -7,15 +7,15 @@ import com.evolutiongaming.smetrics.MetricsHelper._
 
 import scala.concurrent.duration.FiniteDuration
 
-trait DbMetrics[F[_]] {
+trait DoobieMetrics[F[_]] {
   def query(time: FiniteDuration, success: Boolean): F[Unit]
 }
 
-object DbMetrics {
+object DoobieMetrics {
   def of[F[_]: Monad](
     collectorRegistry: CollectorRegistry[F],
     prefix: String = "db"
-  ): Resource[F, String => DbMetrics[F]] = {
+  ): Resource[F, String => DoobieMetrics[F]] = {
 
     val queryTimeSummary = collectorRegistry.summary(
       name      = s"${prefix}_query_time",
@@ -35,7 +35,7 @@ object DbMetrics {
       queryResultCounter <- queryResultCounter
     } yield { name: String =>
       def result(success: Boolean) = if (success) "success" else "failure"
-      new DbMetrics[F] {
+      new DoobieMetrics[F] {
         override def query(time: FiniteDuration, success: Boolean): F[Unit] =
           for {
             _ <- queryResultCounter.labels(name, result(success)).inc()

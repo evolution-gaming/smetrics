@@ -12,7 +12,7 @@ object TransactorMetered {
 
   def apply[F[_]: BracketThrowable: MeasureDuration](
     transactor: Transactor[F],
-    metrics: DbMetrics[F]
+    metrics: DoobieMetrics[F]
   ): Transactor[F] =
     transactor.copy(interpret0 = new Interpreter[F] {
       override def apply[A](fa: ConnectionOp[A]): Kleisli[F, Connection, A] =
