@@ -18,7 +18,7 @@ object Http4sMetricsOps {
       responseDuration <- collectorRegistry.summary(
         s"${ prefix }_response_duration_seconds",
         "Response Duration in seconds.",
-        Quantiles(Quantile(value = 0.9, error = 0.05), Quantile(value = 0.99, error = 0.005)),
+        Quantiles.Default,
         LabelNames("classifier", "method", "phase")
       )
       activeRequests <- collectorRegistry.gauge(
@@ -34,7 +34,7 @@ object Http4sMetricsOps {
       abnormal <- collectorRegistry.summary(
         s"${ prefix }_abnormal_terminations",
         "Total Abnormal Terminations.",
-        Quantiles(Quantile(value = 0.9, error = 0.05), Quantile(value = 0.99, error = 0.005)),
+        Quantiles.Default,
         LabelNames("classifier", "termination_type")
       )
     } yield {

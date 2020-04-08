@@ -49,8 +49,14 @@ lazy val http4s = (project
   in file("modules/http4s")
   settings commonSettings
   dependsOn smetrics % "compile->compile;test->test"
-  settings (
-    name := "smetrics-http4s",
-    libraryDependencies ++= Seq(
-      Dependencies.http4s,
-      scalatest % Test)))
+  settings(
+  name := "smetrics-http4s",
+  libraryDependencies += Dependencies.http4s))
+
+lazy val doobie = (project
+  in file("modules/doobie")
+  settings commonSettings
+  dependsOn smetrics % "compile->compile;test->test"
+  settings(
+  name := "smetrics-doobie",
+  libraryDependencies += Dependencies.doobie))
