@@ -12,7 +12,7 @@ object TransactorMetered {
 
   def apply[F[_]: BracketThrowable: MeasureDuration](
     transactor: Transactor[F],
-    dbMetrics: DbMetrics[F]
+    metrics: DbMetrics[F]
   ): Transactor[F] =
     transactor.copy(interpret0 = new Interpreter[F] {
       override def apply[A](fa: ConnectionOp[A]): Kleisli[F, Connection, A] =
@@ -21,7 +21,7 @@ object TransactorMetered {
             start    <- MeasureDuration[F].start
             result   <- query.attempt
             duration <- start
-            _        <- dbMetrics.query(duration, result.isRight)
+            _        <- metrics.query(duration, result.isRight)
             result   <- result.liftTo[F]
           } yield result
         }
