@@ -21,7 +21,7 @@ lazy val root = (project
   settings (
     publish / skip := true,
     name := "smetrics")
-  aggregate(smetrics, prometheus, http4s))
+  aggregate(smetrics, prometheus, http4s, doobie))
 
 lazy val smetrics = (project
   in file("smetrics")
