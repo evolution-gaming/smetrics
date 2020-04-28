@@ -7,7 +7,7 @@ object Dependencies {
   val prometheusCommon = "io.prometheus"        % "simpleclient_common" % prometheusVersion
   val scalatest        = "org.scalatest"       %% "scalatest"           % "3.1.1"
   val `cats-helper`    = "com.evolutiongaming" %% "cats-helper"         % "1.7.1"
-  val http4s           = "org.http4s"          %% "http4s-core"         % "0.21.3"
+  val http4s           = "org.http4s"          %% "http4s-core"         % "0.21.4"
   val doobie           = "org.tpolecat"        %% "doobie-core"         % "0.9.0"
 
   object Cats {
