@@ -43,7 +43,7 @@ class CollectorRegistryPrometheusSpec extends AsyncFunSuite with Matchers {
       registryP.value[F]("gauge", Nel.of("l1"), Nel.of(value))
     }
 
-    gauge.mapK(FunctionK.id).use { gauge =>
+    gauge.mapK(FunctionK.id[F]).use { gauge =>
       for {
         _  <- gauge.labels("v1").set(2.0)
         _  <- gauge.labels("v2").inc(2.0)
@@ -74,7 +74,7 @@ class CollectorRegistryPrometheusSpec extends AsyncFunSuite with Matchers {
       registryP.value[F]("counter", Nel.of("l1", "l2"), Nel.of(value, value))
     }
 
-    counter.mapK(FunctionK.id).use { counter =>
+    counter.mapK(FunctionK.id[F]).use { counter =>
       for {
         _  <- counter.labels("v1", "v1").inc(2.0)
         _  <- counter.labels("v1", "v1").inc()
@@ -102,7 +102,7 @@ class CollectorRegistryPrometheusSpec extends AsyncFunSuite with Matchers {
       labels = LabelNames(),
       quantiles = Quantiles(Quantile(value = 0.5, error = 0.05)))
 
-    summary.mapK(FunctionK.id).use { summary =>
+    summary.mapK(FunctionK.id[F]).use { summary =>
       for {
         _     <- summary.observe(1.0)
         _     <- summary.observe(2.0)
@@ -130,7 +130,7 @@ class CollectorRegistryPrometheusSpec extends AsyncFunSuite with Matchers {
       registryP.value[F](value, Nel.of("l1", "l2", "l3"), Nel.of("n1", "n2", "n3"))
     }
 
-    histogram.mapK(FunctionK.id).use { histogram =>
+    histogram.mapK(FunctionK.id[F]).use { histogram =>
       for {
         _     <- histogram.labels("n1", "n2", "n3").observe(1.0)
         _     <- histogram.labels("n1", "n2", "n3").observe(2.0)
