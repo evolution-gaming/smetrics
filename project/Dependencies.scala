@@ -9,6 +9,7 @@ object Dependencies {
   val `cats-helper`    = "com.evolutiongaming" %% "cats-helper"         % "2.0.4"
   val http4s           = "org.http4s"          %% "http4s-core"         % "0.21.6"
   val doobie           = "org.tpolecat"        %% "doobie-core"         % "0.9.0"
+  val executorTools    = "com.evolutiongaming" %% "executor-tools"      % "1.0.2"
 
   object Cats {
     private val version = "2.1.1"
