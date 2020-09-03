@@ -3,7 +3,7 @@ package com.evolutiongaming.smetrics
 import cats.arrow.FunctionK
 import cats.data.{NonEmptyList => Nel}
 import cats.effect.{IO, Sync}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.smetrics.IOSuite._
 import io.prometheus.{client => P}
 import org.scalatest.funsuite.AsyncFunSuite
