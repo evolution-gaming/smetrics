@@ -6,38 +6,66 @@ import cats.implicits._
 
 trait CollectorRegistry[F[_]] {
 
-  def gauge[A, B[_]](
+  def gauge[A, B[_], D[_]](
     name: String,
     help: String,
     labels: A)(implicit
-    magnet: LabelsMagnet[A, B]
+    magnet: LabelsMagnet[A, B, D]
   ): Resource[F, B[Gauge[F]]]
 
-
-  def counter[A, B[_]](
+  def gaugeWithInitialLabels[A, B[_], D[_]](
     name: String,
     help: String,
     labels: A)(implicit
-    magnet: LabelsMagnet[A, B]
+    magnet: LabelsMagnet[A, B, D]
+  ): D[Resource[F, B[Gauge[F]]]]
+
+  def counter[A, B[_], D[_]](
+    name: String,
+    help: String,
+    labels: A)(implicit
+    magnet: LabelsMagnet[A, B, D]
   ): Resource[F, B[Counter[F]]]
 
+  def counterWithInitialLabels[A, B[_], D[_]](
+    name: String,
+    help: String,
+    labels: A)(implicit
+    magnet: LabelsMagnet[A, B, D]
+  ): D[Resource[F, B[Counter[F]]]]
 
-  def summary[A, B[_]](
+
+  def summary[A, B[_], D[_]](
     name: String,
     help: String,
     quantiles: Quantiles,
     labels: A)(implicit
-    magnet: LabelsMagnet[A, B]
+    magnet: LabelsMagnet[A, B, D]
   ): Resource[F, B[Summary[F]]]
 
+  def summaryWithInitialLabels[A, B[_], D[_]](
+    name: String,
+    help: String,
+    quantiles: Quantiles,
+    labels: A)(implicit
+    magnet: LabelsMagnet[A, B, D]
+  ): D[Resource[F, B[Summary[F]]]]
 
-  def histogram[A, B[_]](
+  def histogram[A, B[_], D[_]](
     name: String,
     help: String,
     buckets: Buckets,
     labels: A)(implicit
-    magnet: LabelsMagnet[A, B]
+    magnet: LabelsMagnet[A, B, D]
   ): Resource[F, B[Histogram[F]]]
+
+  def histogramWithInitialLabels[A, B[_], D[_]](
+    name: String,
+    help: String,
+    buckets: Buckets,
+    labels: A)(implicit
+    magnet: LabelsMagnet[A, B, D]
+  ): D[Resource[F, B[Histogram[F]]]]
 }
 
 object CollectorRegistry {
@@ -65,7 +93,7 @@ object CollectorRegistry {
 
     val histogram1 = histogram
 
-    def apply[A, B[_], C](collector: F[C])(implicit magnet: LabelsMagnet[A, B]) = {
+    def apply[A, B[_], D[_], C](collector: F[C])(implicit magnet: LabelsMagnet[A, B, D]) = {
       val result = for {
         collector <- collector
       } yield {
@@ -76,42 +104,88 @@ object CollectorRegistry {
 
     new CollectorRegistry[F] {
 
-      def gauge[A, B[_]](
+      def gauge[A, B[_], D[_]](
         name: String,
         help: String,
         labels: A)(implicit
-        magnet: LabelsMagnet[A, B]
+        magnet: LabelsMagnet[A, B, D]
       ) = {
         apply(gauge1)
       }
 
-      def counter[A, B[_]](
+      def gaugeWithInitialLabels[A, B[_], D[_]](
         name: String,
         help: String,
         labels: A)(implicit
-        magnet: LabelsMagnet[A, B]
+        magnet: LabelsMagnet[A, B, D]
+      ) = {
+        magnet.withInitialLabelValues { _ =>
+          apply(gauge1)
+        }
+      }
+
+      def counter[A, B[_], D[_]](
+        name: String,
+        help: String,
+        labels: A)(implicit
+        magnet: LabelsMagnet[A, B, D]
       ) = {
         apply(counter1)
       }
 
-      def summary[A, B[_]](
+      def counterWithInitialLabels[A, B[_], D[_]](
+        name: String,
+        help: String,
+        labels: A)(implicit
+        magnet: LabelsMagnet[A, B, D]
+      ) = {
+        magnet.withInitialLabelValues { _ =>
+          apply(counter1)
+        }
+      }
+
+      def summary[A, B[_], D[_]](
         name: String,
         help: String,
         quantiles: Quantiles,
         labels: A)(implicit
-        magnet: LabelsMagnet[A, B]
+        magnet: LabelsMagnet[A, B, D]
       ) = {
         apply(summary1)
       }
 
-      def histogram[A, B[_]](
+      def summaryWithInitialLabels[A, B[_], D[_]](
+        name: String,
+        help: String,
+        quantiles: Quantiles,
+        labels: A)(implicit
+        magnet: LabelsMagnet[A, B, D]
+      ) = {
+        magnet.withInitialLabelValues { _ =>
+          apply(summary1)
+        }
+      }
+
+      def histogram[A, B[_], D[_]](
         name: String,
         help: String,
         buckets: Buckets,
         labels: A)(implicit
-        magnet: LabelsMagnet[A, B]
+        magnet: LabelsMagnet[A, B, D]
       ) = {
         apply(histogram1)
+      }
+
+      def histogramWithInitialLabels[A, B[_], D[_]](
+        name: String,
+        help: String,
+        buckets: Buckets,
+        labels: A)(implicit
+        magnet: LabelsMagnet[A, B, D]
+      ) = {
+        magnet.withInitialLabelValues { _ =>
+          apply(histogram1)
+        }
       }
     }
   }
