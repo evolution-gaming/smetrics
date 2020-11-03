@@ -7,7 +7,9 @@ import com.evolutiongaming.smetrics.CollectionHelper._
 class CollectionHelperSpec extends AnyFunSuite with Matchers {
 
   test("generate combinations for empty list") {
-    List.empty[List[_]].generateCombinations shouldEqual List.empty[List[_]]
+    List.empty[List[Int]].generateCombinations shouldEqual List.empty[List[Int]]
+    List(List.empty[Int], List.empty[Int]).generateCombinations shouldEqual List.empty[List[Int]]
+    List(List.empty[Int], List.empty[Int], List.empty[Int]).generateCombinations shouldEqual List.empty[List[Int]]
   }
 
   test("generate combinations for singleton list") {
