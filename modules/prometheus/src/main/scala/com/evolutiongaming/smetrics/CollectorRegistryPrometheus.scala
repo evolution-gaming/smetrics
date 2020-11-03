@@ -39,11 +39,11 @@ object CollectorRegistryPrometheus {
       Resource(result)
     }
 
-    def apply[A, B[_], D[_], Child, C <: P.SimpleCollector[Child], Builder <: P.SimpleCollector.Builder[Builder, C], R](
+    def apply[A, B[_], Child, C <: P.SimpleCollector[Child], Builder <: P.SimpleCollector.Builder[Builder, C], R](
       builder: Builder,
       labels: A,
       initialLabelValues: List[List[String]])(implicit
-      magnet: LabelsMagnet[A, B, D],
+      magnet: LabelsMagnet[A, B],
       fromCollector: C => R,
       fromCollectorChild: Child => R
     ): Resource[F, B[R]] = {
@@ -63,68 +63,68 @@ object CollectorRegistryPrometheus {
 
     new CollectorRegistry[F] {
 
-      def gauge[A, B[_], D[_]](
+      def gauge[A, B[_]](
         name: String,
         help: String,
         labels: A)(implicit
-        magnet: LabelsMagnet[A, B, D]
+        magnet: LabelsMagnet[A, B]
       ) = {
         val gauge = P.Gauge.build()
           .name(name)
           .help(help)
 
-        apply[A, B, D, P.Gauge.Child, P.Gauge, P.Gauge.Builder, Gauge[F]](gauge, labels, List.empty)
+        apply[A, B, P.Gauge.Child, P.Gauge, P.Gauge.Builder, Gauge[F]](gauge, labels, List.empty)
       }
 
       def gaugeWithInitialLabels[A, B[_], D[_]](
         name: String,
         help: String,
         labels: A)(implicit
-        magnet: LabelsMagnet[A, B, D]
+        magnet: LabelsMagnetWithInitialLabels[A, B, D]
       ) = {
         magnet.withInitialLabelValues { initialLabelValues =>
           val gauge = P.Gauge.build()
             .name(name)
             .help(help)
 
-          apply[A, B, D, P.Gauge.Child, P.Gauge, P.Gauge.Builder, Gauge[F]](gauge, labels, initialLabelValues)
+          apply[A, B, P.Gauge.Child, P.Gauge, P.Gauge.Builder, Gauge[F]](gauge, labels, initialLabelValues)
         }
       }
 
-      def counter[A, B[_], D[_]](
+      def counter[A, B[_]](
         name: String,
         help: String,
         labels: A)(implicit
-        magnet: LabelsMagnet[A, B, D]
+        magnet: LabelsMagnet[A, B]
       ) = {
         val counter = P.Counter.build()
           .name(name)
           .help(help)
 
-        apply[A, B, D, P.Counter.Child, P.Counter, P.Counter.Builder, Counter[F]](counter, labels, List.empty)
+        apply[A, B, P.Counter.Child, P.Counter, P.Counter.Builder, Counter[F]](counter, labels, List.empty)
       }
 
       def counterWithInitialLabels[A, B[_], D[_]](
         name: String,
         help: String,
         labels: A)(implicit
-        magnet: LabelsMagnet[A, B, D]
+        magnet: LabelsMagnetWithInitialLabels[A, B, D]
       ) = {
         magnet.withInitialLabelValues { initialLabelValues =>
           val counter = P.Counter.build()
             .name(name)
             .help(help)
 
-          apply[A, B, D, P.Counter.Child, P.Counter, P.Counter.Builder, Counter[F]](counter, labels, initialLabelValues)
+          apply[A, B, P.Counter.Child, P.Counter, P.Counter.Builder, Counter[F]](counter, labels, initialLabelValues)
         }
       }
 
-      def summary[A, B[_], D[_]](
+      def summary[A, B[_]](
         name: String,
         help: String,
         quantiles: Quantiles,
         labels: A)(implicit
-        magnet: LabelsMagnet[A, B, D]
+        magnet: LabelsMagnet[A, B]
       ) = {
         val summary = {
           val summary = P.Summary.build()
@@ -136,7 +136,7 @@ object CollectorRegistryPrometheus {
             .foldLeft(summary) { (summary, quantile) => summary.quantile(quantile.value, quantile.error) }
         }
 
-        apply[A, B, D, P.Summary.Child, P.Summary, P.Summary.Builder, Summary[F]](summary, labels, List.empty)
+        apply[A, B, P.Summary.Child, P.Summary, P.Summary.Builder, Summary[F]](summary, labels, List.empty)
       }
 
       def summaryWithInitialLabels[A, B[_], D[_]](
@@ -144,7 +144,7 @@ object CollectorRegistryPrometheus {
         help: String,
         quantiles: Quantiles,
         labels: A)(implicit
-        magnet: LabelsMagnet[A, B, D]
+        magnet: LabelsMagnetWithInitialLabels[A, B, D]
       ) = {
         magnet.withInitialLabelValues { initialLabelValues =>
           val summary = {
@@ -157,17 +157,17 @@ object CollectorRegistryPrometheus {
               .foldLeft(summary) { (summary, quantile) => summary.quantile(quantile.value, quantile.error) }
           }
 
-          apply[A, B, D, P.Summary.Child, P.Summary, P.Summary.Builder, Summary[F]](summary, labels, initialLabelValues)
+          apply[A, B, P.Summary.Child, P.Summary, P.Summary.Builder, Summary[F]](summary, labels, initialLabelValues)
         }
       }
 
 
-      def histogram[A, B[_], D[_]](
+      def histogram[A, B[_]](
         name: String,
         help: String,
         buckets: Buckets,
         labels: A)(implicit
-        magnet: LabelsMagnet[A, B, D]
+        magnet: LabelsMagnet[A, B]
       ) = {
 
         val histogram = P.Histogram.build()
@@ -175,7 +175,7 @@ object CollectorRegistryPrometheus {
           .help(help)
           .buckets(buckets.values.toList: _ *)
 
-        apply[A, B, D, P.Histogram.Child, P.Histogram, P.Histogram.Builder, Histogram[F]](histogram, labels, List.empty)
+        apply[A, B, P.Histogram.Child, P.Histogram, P.Histogram.Builder, Histogram[F]](histogram, labels, List.empty)
       }
 
       def histogramWithInitialLabels[A, B[_], D[_]](
@@ -183,7 +183,7 @@ object CollectorRegistryPrometheus {
         help: String,
         buckets: Buckets,
         labels: A)(implicit
-        magnet: LabelsMagnet[A, B, D]
+        magnet: LabelsMagnetWithInitialLabels[A, B, D]
       ) = {
         magnet.withInitialLabelValues { initialLabelValues =>
 
@@ -192,7 +192,7 @@ object CollectorRegistryPrometheus {
             .help(help)
             .buckets(buckets.values.toList: _ *)
 
-          apply[A, B, D, P.Histogram.Child, P.Histogram, P.Histogram.Builder, Histogram[F]](histogram, labels, initialLabelValues)
+          apply[A, B, P.Histogram.Child, P.Histogram, P.Histogram.Builder, Histogram[F]](histogram, labels, initialLabelValues)
         }
       }
     }
