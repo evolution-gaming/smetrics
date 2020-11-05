@@ -1,6 +1,5 @@
 package com.evolutiongaming.smetrics
 
-
 trait LabelsMagnet[A, B[_]] {
 
   def names(a: A): List[String]
@@ -38,6 +37,6 @@ object LabelsMagnet {
 
     def names(a: A) = a.toList
 
-    def withValues[C](f: List[String] => C): B[C] = WithLabelValues[B].apply(f)
+    def withValues[C](f: List[String] => C) = WithLabelValues[B].apply(f)
   }
 }
