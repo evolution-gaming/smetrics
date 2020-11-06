@@ -3,7 +3,6 @@ package com.evolutiongaming.smetrics
 import cats.arrow.FunctionK
 import cats.data.{NonEmptyList => Nel}
 import cats.effect.{IO, Resource, Sync}
-import cats.implicits._
 import com.evolutiongaming.smetrics.IOSuite._
 import com.evolutiongaming.smetrics.LabelValues.`0`
 import io.prometheus.{client => P}

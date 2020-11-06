@@ -1,7 +1,7 @@
 package com.evolutiongaming.smetrics
 
 import cats.effect.{Resource, Sync}
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.smetrics.CollectionHelper._
 import io.prometheus.client.Collector
 import io.prometheus.{client => P}
