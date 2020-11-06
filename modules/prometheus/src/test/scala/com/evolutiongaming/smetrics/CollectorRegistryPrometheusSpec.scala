@@ -40,10 +40,11 @@ class CollectorRegistryPrometheusSpec extends AsyncFunSuite with Matchers {
       help = "help_test",
       labels = LabelNames("l1"))
 
-    val initializedGauge = registry.initializedGauge(
+    val initializedGauge = registry.gaugeInitialized(
       name = "gauge",
       help = "help_test",
-      labels = InitializedLabels("l1", Nel.of("v1", "v2", "v3")))
+      labels = LabelsInitialized()
+        .add("l1", Nel.of("v1", "v2", "v3")))
 
     def value(value: String) = {
       registryP.value[F]("gauge", Nel.of("l1"), Nel.of(value))
@@ -81,12 +82,12 @@ class CollectorRegistryPrometheusSpec extends AsyncFunSuite with Matchers {
       help = "help_test",
       labels = LabelNames("l1", "l2"))
 
-    val initializedCounter = registry.initializedCounter(
+    val initializedCounter = registry.counterInitialized(
       name = "counter",
       help = "help_test",
-      labels =
-        InitializedLabels("l1", Nel.of("v1", "v2", "v3"))
-          .add("l2", Nel.of("v1", "v2", "v3")))
+      labels = LabelsInitialized()
+        .add("l1", Nel.of("v1", "v2", "v3"))
+        .add("l2", Nel.of("v1", "v2", "v3")))
 
     def value(value1: String, value2: String) = {
       registryP.value[F]("counter", Nel.of("l1", "l2"), Nel.of(value1, value2))
@@ -125,10 +126,10 @@ class CollectorRegistryPrometheusSpec extends AsyncFunSuite with Matchers {
       labels = LabelNames(),
       quantiles = Quantiles(Quantile(value = 0.5, error = 0.05)))
 
-    val initializedSummary = registry.initializedSummary(
+    val initializedSummary = registry.summaryInitialized(
       name = "summary",
       help = "help_test",
-      labels = InitializedLabels(),
+      labels = LabelsInitialized(),
       quantiles = Quantiles(Quantile(value = 0.5, error = 0.05)))
 
     def check(summary: Resource[F, `0`[Summary[F]]]) =
@@ -158,13 +159,13 @@ class CollectorRegistryPrometheusSpec extends AsyncFunSuite with Matchers {
       labels = LabelNames("l1", "l2", "l3"),
       buckets = Buckets.linear(1.0, 1.0, 3))
 
-    val initializedHistogram = registry.initializedHistogram(
+    val initializedHistogram = registry.histogramInitialized(
       name = "histogram",
       help = "help_test",
-      labels =
-        InitializedLabels("l1", Nel.of("n1", "n2", "n3"))
-          .add("l2", Nel.of("n1", "n2", "n3"))
-          .add("l3", Nel.of("n1", "n2", "n3")),
+      labels = LabelsInitialized()
+        .add("l1", Nel.of("n1", "n2", "n3"))
+        .add("l2", Nel.of("n1", "n2", "n3"))
+        .add("l3", Nel.of("n1", "n2", "n3")),
       buckets = Buckets.linear(1.0, 1.0, 3))
 
     def value(metricName: String, value: String) = {
@@ -173,24 +174,24 @@ class CollectorRegistryPrometheusSpec extends AsyncFunSuite with Matchers {
 
     def check(histogram: Resource[F, LabelValues.`3`[Histogram[F]]], defaultValue: Option[Double]) =
       histogram.mapK(FunctionK.id[F]).use { histogram =>
-      for {
-        _ <- histogram.labels("n1", "n1", "n1").observe(1.0)
-        _ <- histogram.labels("n1", "n1", "n1").observe(2.0)
-        sum1 <- value("histogram_sum", "n1")
-        count1 <- value("histogram_count", "n1")
-        sum2 <- value("histogram_sum", "n2")
-        count2 <- value("histogram_count", "n2")
-        sum3 <- value("histogram_sum", "n3")
-        count3 <- value("histogram_count", "n3")
-      } yield {
-        sum1 shouldEqual Some(3.0)
-        count1 shouldEqual Some(2.0)
-        sum2 shouldEqual defaultValue
-        count2 shouldEqual defaultValue
-        sum3 shouldEqual defaultValue
-        count3 shouldEqual defaultValue
+        for {
+          _ <- histogram.labels("n1", "n1", "n1").observe(1.0)
+          _ <- histogram.labels("n1", "n1", "n1").observe(2.0)
+          sum1 <- value("histogram_sum", "n1")
+          count1 <- value("histogram_count", "n1")
+          sum2 <- value("histogram_sum", "n2")
+          count2 <- value("histogram_count", "n2")
+          sum3 <- value("histogram_sum", "n3")
+          count3 <- value("histogram_count", "n3")
+        } yield {
+          sum1 shouldEqual Some(3.0)
+          count1 shouldEqual Some(2.0)
+          sum2 shouldEqual defaultValue
+          count2 shouldEqual defaultValue
+          sum3 shouldEqual defaultValue
+          count3 shouldEqual defaultValue
+        }
       }
-    }
 
     check(histogram, None) *> check(initializedHistogram, Some(0.0))
   }

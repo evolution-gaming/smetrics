@@ -13,11 +13,11 @@ trait CollectorRegistry[F[_]] {
     magnet: LabelsMagnet[A, B]
   ): Resource[F, B[Gauge[F]]]
 
-  def initializedGauge[A, B[_]](
+  def gaugeInitialized[A, B[_]](
     name: String,
     help: String,
     labels: A)(implicit
-    magnet: InitializedLabelsMagnet[A, B]
+    magnet: LabelsMagnetInitialized[A, B]
   ): Resource[F, B[Gauge[F]]]
 
 
@@ -28,11 +28,11 @@ trait CollectorRegistry[F[_]] {
     magnet: LabelsMagnet[A, B]
   ): Resource[F, B[Counter[F]]]
 
-  def initializedCounter[A, B[_]](
+  def counterInitialized[A, B[_]](
     name: String,
     help: String,
     labels: A)(implicit
-    magnet: InitializedLabelsMagnet[A, B]
+    magnet: LabelsMagnetInitialized[A, B]
   ): Resource[F, B[Counter[F]]]
 
 
@@ -44,12 +44,12 @@ trait CollectorRegistry[F[_]] {
     magnet: LabelsMagnet[A, B]
   ): Resource[F, B[Summary[F]]]
 
-  def initializedSummary[A, B[_]](
+  def summaryInitialized[A, B[_]](
     name: String,
     help: String,
     quantiles: Quantiles,
     labels: A)(implicit
-    magnet: InitializedLabelsMagnet[A, B]
+    magnet: LabelsMagnetInitialized[A, B]
   ): Resource[F, B[Summary[F]]]
 
 
@@ -61,12 +61,12 @@ trait CollectorRegistry[F[_]] {
     magnet: LabelsMagnet[A, B]
   ): Resource[F, B[Histogram[F]]]
 
-  def initializedHistogram[A, B[_]](
+  def histogramInitialized[A, B[_]](
     name: String,
     help: String,
     buckets: Buckets,
     labels: A)(implicit
-    magnet: InitializedLabelsMagnet[A, B]
+    magnet: LabelsMagnetInitialized[A, B]
   ): Resource[F, B[Histogram[F]]]
 }
 
@@ -115,11 +115,11 @@ object CollectorRegistry {
         apply(gauge1)
       }
 
-      def initializedGauge[A, B[_]](
+      def gaugeInitialized[A, B[_]](
         name: String,
         help: String,
         labels: A)(implicit
-        magnet: InitializedLabelsMagnet[A, B]
+        magnet: LabelsMagnetInitialized[A, B]
       ) = {
         apply(gauge1)
       }
@@ -133,11 +133,11 @@ object CollectorRegistry {
         apply(counter1)
       }
 
-      def initializedCounter[A, B[_]](
+      def counterInitialized[A, B[_]](
         name: String,
         help: String,
         labels: A)(implicit
-        magnet: InitializedLabelsMagnet[A, B]
+        magnet: LabelsMagnetInitialized[A, B]
       ) = {
         apply(counter1)
       }
@@ -152,12 +152,12 @@ object CollectorRegistry {
         apply(summary1)
       }
 
-      def initializedSummary[A, B[_]](
+      def summaryInitialized[A, B[_]](
         name: String,
         help: String,
         quantiles: Quantiles,
         labels: A)(implicit
-        magnet: InitializedLabelsMagnet[A, B]
+        magnet: LabelsMagnetInitialized[A, B]
       ) = {
         apply(summary1)
       }
@@ -172,12 +172,12 @@ object CollectorRegistry {
         apply(histogram1)
       }
 
-      def initializedHistogram[A, B[_]](
+      def histogramInitialized[A, B[_]](
         name: String,
         help: String,
         buckets: Buckets,
         labels: A)(implicit
-        magnet: InitializedLabelsMagnet[A, B]
+        magnet: LabelsMagnetInitialized[A, B]
       ) = {
         apply(histogram1)
       }

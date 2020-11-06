@@ -1,14 +1,10 @@
 package com.evolutiongaming.smetrics
 
-import cats.Semigroupal
 import cats.implicits._
 
 object CollectionHelper {
 
-  implicit class Combinator[A](values: List[List[A]]) {
-
-    private val combinator: (List[A], List[A]) => List[List[A]] =
-      Semigroupal.map2[List, A, A, List[A]](_, _)((value1, value2) => List(value1, value2))
+  implicit class ListOpsCollectionHelper[A](val values: List[List[A]]) extends AnyVal {
 
     /*
       Generates all possible combinations for transmitted lists.
@@ -19,13 +15,13 @@ object CollectionHelper {
         List(1,2), List(3,4)) -> List(List(1,3), List(1,4), List(2,3), List(2,4))
         List(List(1, 2), List(3,4), List(5,6)) -> List(List(1, 3, 5), List(1, 3, 6), List(1, 4, 5), List(1, 4, 6), List(2, 3, 5), List(2, 3, 6), List(2, 4, 5), List(2, 4, 6))
      */
-    def combinations(): List[List[A]] = {
+    def combine: List[List[A]] = {
       values match {
         case Nil                        => List.empty
         case values :: Nil              => values.map(List(_))
         case values1 :: values2 :: tail =>
           tail.foldLeft(
-            combinator(values1, values2)
+            values1.map2(values2)(List(_, _))
           )(
             (accumulator, values) => for {
               value1 <- accumulator

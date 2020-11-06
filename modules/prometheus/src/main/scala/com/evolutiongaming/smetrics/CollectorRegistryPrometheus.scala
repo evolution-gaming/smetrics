@@ -2,9 +2,9 @@ package com.evolutiongaming.smetrics
 
 import cats.effect.{Resource, Sync}
 import cats.implicits._
+import com.evolutiongaming.smetrics.CollectionHelper._
 import io.prometheus.client.Collector
 import io.prometheus.{client => P}
-import com.evolutiongaming.smetrics.CollectionHelper._
 
 object CollectorRegistryPrometheus {
 
@@ -14,15 +14,12 @@ object CollectorRegistryPrometheus {
       collector: C,
       initialLabelValues: List[List[String]]
     ): Resource[F, Unit] =
-      if (initialLabelValues.nonEmpty)
+      if (initialLabelValues.nonEmpty) {
+        val combinations = initialLabelValues.combine
         Resource.liftF(
-          Sync[F].delay {
-            initialLabelValues
-              .combinations()
-              .foreach(labelValues => collector.labels(labelValues: _*))
-          }
+          Sync[F].delay { combinations.foreach(labelValues => collector.labels(labelValues: _*)) }
         )
-      else Resource.pure[F, Unit](())
+      } else Resource.pure[F, Unit](())
 
     def build[Child, C <: P.SimpleCollector[Child], Builder <: P.SimpleCollector.Builder[Builder, C]](
       builder: Builder, labelNames: List[String]
@@ -77,11 +74,11 @@ object CollectorRegistryPrometheus {
         apply[A, B, P.Gauge.Child, P.Gauge, P.Gauge.Builder, Gauge[F]](gauge, magnet.names(labels), List.empty)
       }
 
-      def initializedGauge[A, B[_]](
+      def gaugeInitialized[A, B[_]](
         name: String,
         help: String,
         labels: A)(implicit
-        magnet: InitializedLabelsMagnet[A, B]
+        magnet: LabelsMagnetInitialized[A, B]
       ) = {
         val gauge = P.Gauge.build()
           .name(name)
@@ -104,11 +101,11 @@ object CollectorRegistryPrometheus {
         apply[A, B, P.Counter.Child, P.Counter, P.Counter.Builder, Counter[F]](counter, magnet.names(labels), List.empty)
       }
 
-      def initializedCounter[A, B[_]](
+      def counterInitialized[A, B[_]](
         name: String,
         help: String,
         labels: A)(implicit
-        magnet: InitializedLabelsMagnet[A, B]
+        magnet: LabelsMagnetInitialized[A, B]
       ) = {
         val counter = P.Counter.build()
           .name(name)
@@ -138,12 +135,12 @@ object CollectorRegistryPrometheus {
         apply[A, B, P.Summary.Child, P.Summary, P.Summary.Builder, Summary[F]](summary, magnet.names(labels), List.empty)
       }
 
-      def initializedSummary[A, B[_]](
+      def summaryInitialized[A, B[_]](
         name: String,
         help: String,
         quantiles: Quantiles,
         labels: A)(implicit
-        magnet: InitializedLabelsMagnet[A, B]
+        magnet: LabelsMagnetInitialized[A, B]
       ) = {
         val summary = {
           val summary = P.Summary.build()
@@ -175,12 +172,12 @@ object CollectorRegistryPrometheus {
         apply[A, B, P.Histogram.Child, P.Histogram, P.Histogram.Builder, Histogram[F]](histogram, magnet.names(labels), List.empty)
       }
 
-      def initializedHistogram[A, B[_]](
+      def histogramInitialized[A, B[_]](
         name: String,
         help: String,
         buckets: Buckets,
         labels: A)(implicit
-        magnet: InitializedLabelsMagnet[A, B]
+        magnet: LabelsMagnetInitialized[A, B]
       ) = {
 
         val histogram = P.Histogram.build()
