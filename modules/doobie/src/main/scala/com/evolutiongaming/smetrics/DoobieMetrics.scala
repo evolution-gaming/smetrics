@@ -2,7 +2,7 @@ package com.evolutiongaming.smetrics
 
 import cats.Monad
 import cats.effect.Resource
-import cats.implicits._
+import cats.syntax.all._
 import com.evolutiongaming.smetrics.MetricsHelper._
 
 import scala.concurrent.duration.FiniteDuration

@@ -1,6 +1,6 @@
 package com.evolutiongaming.smetrics
 
-import cats.implicits._
+import cats.syntax.all._
 
 object CollectionHelper {
 
