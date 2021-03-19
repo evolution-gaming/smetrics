@@ -14,7 +14,7 @@ class MeasureDurationSpec extends AnyFunSuite with Matchers {
   import MeasureDurationSpec._
 
   test("measure duration") {
-    val measureDuration = MeasureDuration.fromClock[StateT](Clock[StateT])
+    val measureDuration = MeasureDuration[StateT]
     val stateT = for {
       duration <- measureDuration.start
       duration <- duration
