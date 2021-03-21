@@ -44,6 +44,7 @@ class MeasureDurationSpec extends AnyFunSuite with Matchers with MockitoSugar wi
       .run(State.Empty)
     state shouldEqual State.Empty
   }
+
   test("MeasureDurationOps.measuredCase success") {
     val successHandler = mock[FiniteDuration => IO[Unit]]
     val failureHandler = mock[FiniteDuration => IO[Unit]]
@@ -56,6 +57,7 @@ class MeasureDurationSpec extends AnyFunSuite with Matchers with MockitoSugar wi
     assertResult(3)(argument.getValue.toSeconds)
     verifyNoMoreInteractions(successHandler, failureHandler)
   }
+  
   test("MeasureDurationOps.measuredCase failure") {
     val successHandler = mock[FiniteDuration => IO[Unit]]
     val failureHandler = mock[FiniteDuration => IO[Unit]]
