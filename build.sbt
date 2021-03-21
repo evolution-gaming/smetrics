@@ -32,7 +32,8 @@ lazy val smetrics = (project
       Cats.core,
       Cats.effect,
       `cats-helper`,
-      scalatest % Test)))
+      scalatest % Test,
+      mockito % Test)))
 
 lazy val prometheus = (project
   in file("modules/prometheus")

@@ -3,13 +3,19 @@ package com.evolutiongaming.smetrics
 import java.util.concurrent.TimeUnit
 
 import cats.Id
-import cats.effect.Clock
+import cats.effect.{Clock, IO, Timer}
+import cats.syntax.functor._
+import cats.syntax.applicativeError._
+import com.evolutiongaming.smetrics.syntax.measureDuration._
 
 import scala.concurrent.duration._
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
+import IOSuite._
+import org.mockito.{ArgumentCaptor, ArgumentMatchersSugar}
+import org.mockito.scalatest.MockitoSugar
 
-class MeasureDurationSpec extends AnyFunSuite with Matchers {
+class MeasureDurationSpec extends AnyFunSuite with Matchers with MockitoSugar with ArgumentMatchersSugar {
 
   import MeasureDurationSpec._
 
@@ -24,6 +30,46 @@ class MeasureDurationSpec extends AnyFunSuite with Matchers {
     duration shouldEqual 2.nanos
     state shouldEqual State.Empty
   }
+
+  test("MeasureDurationOps.measured") {
+    val handler: FiniteDuration => StateT[Unit] =
+      duration => StateT { state =>
+        val timestamp = duration.toNanos
+        timestamp shouldEqual 5
+        (state, timestamp)
+      }.void
+    val (state, _) = Timer[StateT]
+      .sleep(5.nanos)
+      .measured(handler)
+      .run(State.Empty)
+    state shouldEqual State.Empty
+  }
+  test("MeasureDurationOps.measuredCase success") {
+    val successHandler = mock[FiniteDuration => IO[Unit]]
+    val failureHandler = mock[FiniteDuration => IO[Unit]]
+    val argument: ArgumentCaptor[FiniteDuration] = ArgumentCaptor.forClass(classOf[FiniteDuration])
+    doReturn(IO.unit).when(successHandler).apply(argument.capture())
+    Timer[IO]
+      .sleep(3.second)
+      .measuredCase(successHandler, failureHandler)
+      .unsafeRunSync()
+    assertResult(3)(argument.getValue.toSeconds)
+    verifyNoMoreInteractions(successHandler, failureHandler)
+  }
+  test("MeasureDurationOps.measuredCase failure") {
+    val successHandler = mock[FiniteDuration => IO[Unit]]
+    val failureHandler = mock[FiniteDuration => IO[Unit]]
+    val argument: ArgumentCaptor[FiniteDuration] = ArgumentCaptor.forClass(classOf[FiniteDuration])
+    doReturn(IO.unit).when(failureHandler).apply(argument.capture())
+    assertThrows[RuntimeException] {
+      (Timer[IO].sleep(3.second) *> new RuntimeException().raiseError[IO, Unit])
+        .measuredCase(successHandler, failureHandler)
+        .unsafeRunSync()
+    }
+    assertResult(3)(argument.getValue.toSeconds)
+    verifyNoMoreInteractions(successHandler, failureHandler)
+  }
+
 }
 
 object MeasureDurationSpec {
@@ -51,22 +97,30 @@ object MeasureDurationSpec {
   }
 
 
-  implicit val clockStateT: Clock[StateT] = new Clock[StateT] {
+  implicit val timerStateT: Timer[StateT] = new Timer[StateT] {
 
-    def realTime(unit: TimeUnit) = {
-      StateT { state =>
-        val (state1, timestamp) = state.timestamp
-        val timestamp1 = unit.convert(timestamp, TimeUnit.NANOSECONDS)
-        (state1, timestamp1)
-      }
+    def clock: Clock[StateT] = new Clock[StateT] {
+      def realTime(unit: TimeUnit) =
+        StateT { state =>
+          val (state1, timestamp) = state.timestamp
+          val timestamp1 = unit.convert(timestamp, TimeUnit.NANOSECONDS)
+          (state1, timestamp1)
+        }
+
+      def monotonic(unit: TimeUnit) =
+        StateT { state =>
+          val (state1, timestamp) = state.timestamp
+          val timestamp1 = unit.convert(timestamp, TimeUnit.NANOSECONDS)
+          (state1, timestamp1)
+        }
     }
 
-    def monotonic(unit: TimeUnit) = {
+    def sleep(duration: FiniteDuration) =
       StateT { state =>
         val (state1, timestamp) = state.timestamp
-        val timestamp1 = unit.convert(timestamp, TimeUnit.NANOSECONDS)
-        (state1, timestamp1)
+        val timestamp1 = timestamp + duration.toNanos
+        val newState = state1.copy(timestamps = state1.timestamps :+ timestamp1)
+        (newState, ())
       }
-    }
   }
 }
