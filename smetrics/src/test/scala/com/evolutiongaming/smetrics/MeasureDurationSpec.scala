@@ -18,7 +18,7 @@ class MeasureDurationSpec extends AnyFunSuite with Matchers {
   import MeasureDurationSpec._
 
   test("measure duration") {
-    val measureDuration = MeasureDuration[StateT[Id, State, *]]
+    val measureDuration = MeasureDuration[IdState]
     val stateT = for {
       duration <- measureDuration.start
       duration <- duration
@@ -30,7 +30,7 @@ class MeasureDurationSpec extends AnyFunSuite with Matchers {
   }
 
   test("MeasureDurationOps.measured") {
-    val test = Timer[StateT[Id, State, *]].sleep(3.seconds).measured { time =>
+    val test = Timer[IdState].sleep(3.seconds).measured { time =>
       StateT.set(State(time.toNanos :: Nil))
     }
 
@@ -62,6 +62,8 @@ class MeasureDurationSpec extends AnyFunSuite with Matchers {
 }
 
 object MeasureDurationSpec {
+
+  type IdState[A] = StateT[Id, State, A]
 
   final case class State(timestamps: List[Long]) {
 
