@@ -1,26 +1,24 @@
 package com.evolutiongaming.smetrics
 
-import java.util.concurrent.TimeUnit
-
-import cats.Id
+import cats.data.StateT
 import cats.effect.{Clock, IO, Timer}
-import cats.syntax.functor._
-import cats.syntax.applicativeError._
-import com.evolutiongaming.smetrics.syntax.measureDuration._
-
-import scala.concurrent.duration._
+import cats.syntax.all._
+import cats.{Applicative, Id}
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
-import IOSuite._
-import org.mockito.{ArgumentCaptor, ArgumentMatchersSugar}
-import org.mockito.scalatest.MockitoSugar
+import com.evolutiongaming.smetrics.syntax.measureDuration._
+import java.util.concurrent.TimeUnit
 
-class MeasureDurationSpec extends AnyFunSuite with Matchers with MockitoSugar with ArgumentMatchersSugar {
+import cats.effect.concurrent.Ref
+
+import scala.concurrent.duration._
+
+class MeasureDurationSpec extends AnyFunSuite with Matchers {
 
   import MeasureDurationSpec._
 
   test("measure duration") {
-    val measureDuration = MeasureDuration[StateT]
+    val measureDuration = MeasureDuration[StateT[Id, State, *]]
     val stateT = for {
       duration <- measureDuration.start
       duration <- duration
@@ -32,44 +30,33 @@ class MeasureDurationSpec extends AnyFunSuite with Matchers with MockitoSugar wi
   }
 
   test("MeasureDurationOps.measured") {
-    val handler: FiniteDuration => StateT[Unit] =
-      duration => StateT { state =>
-        val timestamp = duration.toNanos
-        timestamp shouldEqual 5
-        (state, timestamp)
-      }.void
-    val (state, _) = Timer[StateT]
-      .sleep(5.nanos)
-      .measured(handler)
-      .run(State.Empty)
-    state shouldEqual State.Empty
+    val test = Timer[StateT[Id, State, *]].sleep(3.seconds).measured { time =>
+      StateT.set(State(time.toNanos :: Nil))
+    }
+
+    test.runS(State.Empty) shouldEqual State(3.seconds.toNanos :: Nil)
   }
 
   test("MeasureDurationOps.measuredCase success") {
-    val successHandler = mock[FiniteDuration => IO[Unit]]
-    val failureHandler = mock[FiniteDuration => IO[Unit]]
-    val argument: ArgumentCaptor[FiniteDuration] = ArgumentCaptor.forClass(classOf[FiniteDuration])
-    doReturn(IO.unit).when(successHandler).apply(argument.capture())
-    Timer[IO]
-      .sleep(3.second)
-      .measuredCase(successHandler, failureHandler)
-      .unsafeRunSync()
-    assertResult(3)(argument.getValue.toSeconds)
-    verifyNoMoreInteractions(successHandler, failureHandler)
+    val test = Timer[StateT[Either[Throwable, *], State, *]].sleep(3.seconds).measuredCase (
+      time => StateT.modify(old => State(time.toNanos +: old.timestamps)),
+      _    => StateT.modify(old => State(-1L +: old.timestamps))
+    )
+
+    test.runS(State.Empty) shouldEqual State(3.seconds.toNanos :: Nil).asRight[Throwable]
   }
-  
+
   test("MeasureDurationOps.measuredCase failure") {
-    val successHandler = mock[FiniteDuration => IO[Unit]]
-    val failureHandler = mock[FiniteDuration => IO[Unit]]
-    val argument: ArgumentCaptor[FiniteDuration] = ArgumentCaptor.forClass(classOf[FiniteDuration])
-    doReturn(IO.unit).when(failureHandler).apply(argument.capture())
-    assertThrows[RuntimeException] {
-      (Timer[IO].sleep(3.second) *> new RuntimeException().raiseError[IO, Unit])
-        .measuredCase(successHandler, failureHandler)
-        .unsafeRunSync()
-    }
-    assertResult(3)(argument.getValue.toSeconds)
-    verifyNoMoreInteractions(successHandler, failureHandler)
+    val test = for {
+      ref    <- StateT.liftF(Ref.of[IO, List[FiniteDuration]](List.empty))
+      _      <- StateT.liftF[IO, State, Unit](IO.raiseError(new RuntimeException("test"))).measuredCase(
+        _    => StateT.liftF(ref.update(1.day :: _)),
+        time => StateT.liftF(ref.update(time :: _))
+      ).attempt
+      time   <- StateT.liftF(ref.get)
+    } yield time
+
+    test.runA(State(0L :: 5L :: Nil)).unsafeRunSync() shouldEqual List(5.nanos)
   }
 
 }
@@ -90,39 +77,30 @@ object MeasureDurationSpec {
     val Empty: State = State(List.empty)
   }
 
+  implicit def timerStateT[F[_]: Applicative]: Timer[StateT[F, State, *]] = new Timer[StateT[F, State, *]] {
 
-  type StateT[A] = cats.data.StateT[Id, State, A]
-
-  object StateT {
-
-    def apply[A](f: State => (State, A)): StateT[A] = cats.data.StateT[Id, State, A](f)
-  }
-
-
-  implicit val timerStateT: Timer[StateT] = new Timer[StateT] {
-
-    def clock: Clock[StateT] = new Clock[StateT] {
-      def realTime(unit: TimeUnit) =
+    def clock: Clock[StateT[F, State, *]] = new Clock[StateT[F, State, *]] {
+      def realTime(unit: TimeUnit): StateT[F, State, Long] =
         StateT { state =>
           val (state1, timestamp) = state.timestamp
           val timestamp1 = unit.convert(timestamp, TimeUnit.NANOSECONDS)
-          (state1, timestamp1)
+          (state1, timestamp1).pure[F]
         }
 
-      def monotonic(unit: TimeUnit) =
+      def monotonic(unit: TimeUnit): StateT[F, State, Long] =
         StateT { state =>
           val (state1, timestamp) = state.timestamp
           val timestamp1 = unit.convert(timestamp, TimeUnit.NANOSECONDS)
-          (state1, timestamp1)
+          (state1, timestamp1).pure[F]
         }
     }
 
-    def sleep(duration: FiniteDuration) =
+    def sleep(duration: FiniteDuration): StateT[F, State, Unit] =
       StateT { state =>
         val (state1, timestamp) = state.timestamp
         val timestamp1 = timestamp + duration.toNanos
         val newState = state1.copy(timestamps = state1.timestamps :+ timestamp1)
-        (newState, ())
+        (newState, ()).pure[F]
       }
   }
 }
