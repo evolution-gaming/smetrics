@@ -101,7 +101,7 @@ object CollectorRegistry {
       } yield {
         magnet.withValues { _ => collector }
       }
-      Resource.liftF(result)
+      Resource.eval(result)
     }
 
     new CollectorRegistry[F] {
