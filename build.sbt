@@ -32,7 +32,9 @@ lazy val smetrics = (project
       Cats.core,
       Cats.effect,
       `cats-helper`,
-      scalatest % Test)))
+      scalatest % Test),
+  addCompilerPlugin("org.typelevel" % "kind-projector" % "0.11.3" cross CrossVersion.full)
+))
 
 lazy val prometheus = (project
   in file("modules/prometheus")
