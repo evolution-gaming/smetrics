@@ -2,8 +2,10 @@ package com.evolutiongaming.smetrics
 
 import cats.data.StateT
 import cats.effect.{Clock, IO, Timer}
-import cats.syntax.all._
 import cats.{Applicative, Id}
+import cats.syntax.either._
+import cats.syntax.applicative._
+import cats.syntax.applicativeError._
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 import com.evolutiongaming.smetrics.syntax.measureDuration._
@@ -18,9 +20,8 @@ class MeasureDurationSpec extends AnyFunSuite with Matchers {
   import MeasureDurationSpec._
 
   test("measure duration") {
-    val measureDuration = MeasureDuration[IdState]
     val stateT = for {
-      duration <- measureDuration.start
+      duration <- MeasureDuration[IdState].start
       duration <- duration
     } yield duration
 
@@ -30,20 +31,22 @@ class MeasureDurationSpec extends AnyFunSuite with Matchers {
   }
 
   test("MeasureDurationOps.measured") {
-    val test = Timer[IdState].sleep(3.seconds).measured { time =>
-      StateT.set(State(time.toNanos :: Nil))
+    val test = Timer[IdState].sleep(3.seconds).measured {
+      time => StateT.modify(old => State(time.toNanos :: old.timestamps))
     }
 
-    test.runS(State.Empty) shouldEqual State(3.seconds.toNanos :: Nil)
+    test.runS(State(List(0, 0))) shouldEqual State(3.seconds.toNanos :: Nil)
   }
 
   test("MeasureDurationOps.measuredCase success") {
-    val test = Timer[StateT[Either[Throwable, *], State, *]].sleep(3.seconds).measuredCase (
-      time => StateT.modify(old => State(time.toNanos +: old.timestamps)),
-      _    => StateT.modify(old => State(-1L +: old.timestamps))
-    )
+    val test = Timer[StateT[Either[Throwable, *], State, *]]
+      .sleep(3.seconds)
+      .measuredCase(
+        time => StateT.modify(old => State(time.toNanos +: old.timestamps)),
+        _ => StateT.modify(old => State(-1L +: old.timestamps))
+      )
 
-    test.runS(State.Empty) shouldEqual State(3.seconds.toNanos :: Nil).asRight[Throwable]
+    test.runS(State(List(0, 0))) shouldEqual State(3.seconds.toNanos :: Nil).asRight[Throwable]
   }
 
   test("MeasureDurationOps.measuredCase failure") {
@@ -56,7 +59,7 @@ class MeasureDurationSpec extends AnyFunSuite with Matchers {
       time   <- StateT.liftF(ref.get)
     } yield time
 
-    test.runA(State(0L :: 5L :: Nil)).unsafeRunSync() shouldEqual List(5.nanos)
+    test.runA(State(List(0, 5))).unsafeRunSync() shouldEqual List(5.nanos)
   }
 
 }
@@ -80,8 +83,8 @@ object MeasureDurationSpec {
   }
 
   implicit def timerStateT[F[_]: Applicative]: Timer[StateT[F, State, *]] = new Timer[StateT[F, State, *]] {
-
     def clock: Clock[StateT[F, State, *]] = new Clock[StateT[F, State, *]] {
+
       def realTime(unit: TimeUnit): StateT[F, State, Long] =
         StateT { state =>
           val (state1, timestamp) = state.timestamp
@@ -98,11 +101,10 @@ object MeasureDurationSpec {
     }
 
     def sleep(duration: FiniteDuration): StateT[F, State, Unit] =
-      StateT { state =>
-        val (state1, timestamp) = state.timestamp
-        val timestamp1 = timestamp + duration.toNanos
-        val newState = state1.copy(timestamps = state1.timestamps :+ timestamp1)
-        (newState, ()).pure[F]
+      StateT.modify { state =>
+        State(state.timestamps.map(_ + duration.toNanos))
       }
+
   }
+
 }
