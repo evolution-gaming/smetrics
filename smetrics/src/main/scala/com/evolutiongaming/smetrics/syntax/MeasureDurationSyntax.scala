@@ -23,7 +23,7 @@ final class MeasureDurationOps[F[_], A](private val fa: F[A]) extends AnyVal {
    * Example:
    * {{{
    * import com.evolutiongaming.smetrics.syntax.measureDuration._
-   * val handler: FiniteDuration => F[Unit] = latency => Sync[F].delay { println(s"Successful execution. Latency is $latency") }
+   * val handler: FiniteDuration => F[Unit] = latency => Sync[F].delay { println(s"Successful execution. Latency is \$latency") }
    * Sync[F]
    *   .delay { toBeMeasuredSideEffectCall() }
    *   .measured { handler }
@@ -48,8 +48,8 @@ final class MeasureDurationOps[F[_], A](private val fa: F[A]) extends AnyVal {
    * Example:
    * {{{
    * import com.evolutiongaming.smetrics.syntax.measureDuration._
-   * val successHandler: FiniteDuration => F[Unit] = latency => Sync[F].delay { println(s"Successful execution. Latency is $latency") }
-   * val failureHandler: FiniteDuration => F[Unit] = latency => Sync[F].delay { println(s"Failed execution. Latency is $latency") }
+   * val successHandler: FiniteDuration => F[Unit] = latency => Sync[F].delay { println(s"Successful execution. Latency is \$latency") }
+   * val failureHandler: FiniteDuration => F[Unit] = latency => Sync[F].delay { println(s"Failed execution. Latency is \$latency") }
    * Sync[F]
    *   .delay { toBeMeasuredSideEffectCall() }
    *   .measuredCase { successHandler, failureHandler }
