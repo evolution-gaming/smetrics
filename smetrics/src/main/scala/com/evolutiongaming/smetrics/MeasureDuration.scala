@@ -20,13 +20,17 @@ object MeasureDuration {
   }
 
 
-  def empty[F[_] : Applicative]: MeasureDuration[F] = const(0.seconds.pure[F].pure[F])
+  def empty[F[_]: Applicative]: MeasureDuration[F] = const(0.seconds.pure[F].pure[F])
 
 
   def apply[F[_]](implicit F: MeasureDuration[F]): MeasureDuration[F] = F
 
 
-  implicit def fromClock[F[_] : Clock : FlatMap]: MeasureDuration[F] = {
+  def fromClock[F[_]: FlatMap](clock: Clock[F]): MeasureDuration[F] = {
+    fromClock1(clock, FlatMap[F])
+  }
+
+  implicit def fromClock1[F[_]: Clock: FlatMap]: MeasureDuration[F] = {
     val timeUnit = TimeUnit.NANOSECONDS
     val duration = for {
       duration <- Clock[F].monotonic(timeUnit)
