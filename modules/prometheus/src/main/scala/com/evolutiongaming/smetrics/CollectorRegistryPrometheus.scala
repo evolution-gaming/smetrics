@@ -16,7 +16,7 @@ object CollectorRegistryPrometheus {
     ): Resource[F, Unit] =
       if (initialLabelValues.nonEmpty) {
         val combinations = initialLabelValues.combine
-        Resource.liftF(
+        Resource.eval(
           Sync[F].delay { combinations.foreach(labelValues => collector.labels(labelValues: _*)) }
         )
       } else Resource.pure[F, Unit](())
@@ -24,7 +24,7 @@ object CollectorRegistryPrometheus {
     def build[Child, C <: P.SimpleCollector[Child], Builder <: P.SimpleCollector.Builder[Builder, C]](
       builder: Builder, labelNames: List[String]
     ): Resource[F, C] =
-      Resource.liftF(
+      Resource.eval(
         Sync[F].delay { builder.labelNames(labelNames: _*).create() }
       )
 
