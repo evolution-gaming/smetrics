@@ -12,7 +12,7 @@
 ```scala
 resolvers += Resolver.bintrayRepo("evolutiongaming", "maven")
 
-libraryDependencies += "com.evolutiongaming" %% "smetrics" % "0.1.0"
+libraryDependencies += "com.evolutiongaming" %% "smetrics" % "0.3.1"
 
-libraryDependencies += "com.evolutiongaming" %% "smetrics-prometheus" % "0.1.0"
+libraryDependencies += "com.evolutiongaming" %% "smetrics-prometheus" % "0.3.1"
 ``` 
