@@ -1,7 +1,7 @@
 package com.evolutiongaming.smetrics
 
 import cats.data.StateT
-import cats.effect.{Clock, IO, Timer}
+import cats.effect.{Clock, IO}
 import cats.{Applicative, Id}
 import cats.syntax.either._
 import cats.syntax.applicative._
@@ -11,9 +11,9 @@ import org.scalatest.matchers.should.Matchers
 import com.evolutiongaming.smetrics.syntax.measureDuration._
 import java.util.concurrent.TimeUnit
 
-import cats.effect.concurrent.Ref
 
 import scala.concurrent.duration._
+import cats.effect.{ Ref, Temporal }
 
 class MeasureDurationSpec extends AnyFunSuite with Matchers {
 
@@ -31,7 +31,7 @@ class MeasureDurationSpec extends AnyFunSuite with Matchers {
   }
 
   test("MeasureDurationOps.measured") {
-    val test = Timer[IdState].sleep(3.seconds).measured {
+    val test = Temporal[IdState].sleep(3.seconds).measured {
       time => StateT.modify(old => State(time.toNanos :: old.timestamps))
     }
 
@@ -39,7 +39,7 @@ class MeasureDurationSpec extends AnyFunSuite with Matchers {
   }
 
   test("MeasureDurationOps.measuredCase success") {
-    val test = Timer[StateT[Either[Throwable, *], State, *]]
+    val test = Temporal[StateT[Either[Throwable, *], State, *]]
       .sleep(3.seconds)
       .measuredCase(
         time => StateT.modify(old => State(time.toNanos +: old.timestamps)),
@@ -82,7 +82,7 @@ object MeasureDurationSpec {
     val Empty: State = State(List.empty)
   }
 
-  implicit def timerStateT[F[_]: Applicative]: Timer[StateT[F, State, *]] = new Timer[StateT[F, State, *]] {
+  implicit def timerStateT[F[_]: Applicative]: Temporal[StateT[F, State, *]] = new Temporal[StateT[F, State, *]] {
     def clock: Clock[StateT[F, State, *]] = new Clock[StateT[F, State, *]] {
 
       def realTime(unit: TimeUnit): StateT[F, State, Long] =
