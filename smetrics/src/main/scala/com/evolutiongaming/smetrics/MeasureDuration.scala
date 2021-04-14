@@ -20,16 +20,20 @@ object MeasureDuration {
   }
 
 
-  def empty[F[_] : Applicative]: MeasureDuration[F] = const(0.seconds.pure[F].pure[F])
+  def empty[F[_]: Applicative]: MeasureDuration[F] = const(0.seconds.pure[F].pure[F])
 
 
   def apply[F[_]](implicit F: MeasureDuration[F]): MeasureDuration[F] = F
 
 
-  def fromClock[F[_] : FlatMap](clock: Clock[F]): MeasureDuration[F] = {
+  def fromClock[F[_]: FlatMap](clock: Clock[F]): MeasureDuration[F] = {
+    fromClock1(clock, FlatMap[F])
+  }
+
+  implicit def fromClock1[F[_]: Clock: FlatMap]: MeasureDuration[F] = {
     val timeUnit = TimeUnit.NANOSECONDS
     val duration = for {
-      duration <- clock.monotonic(timeUnit)
+      duration <- Clock[F].monotonic(timeUnit)
     } yield {
       FiniteDuration(duration, timeUnit)
     }
@@ -59,4 +63,5 @@ object MeasureDuration {
       val start = f(self.start.map(f.apply))
     }
   }
+
 }

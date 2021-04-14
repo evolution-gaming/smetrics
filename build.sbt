@@ -8,7 +8,7 @@ lazy val commonSettings = Seq(
   organizationHomepage := Some(url("http://evolutiongaming.com")),
   bintrayOrganization := Some("evolutiongaming"),
   scalaVersion := crossScalaVersions.value.head,
-  crossScalaVersions := Seq("2.13.5", "2.12.12"),
+  crossScalaVersions := Seq("2.13.5", "2.12.13"),
   resolvers += Resolver.bintrayRepo("evolutiongaming", "maven"),
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
   releaseCrossBuild := true,
@@ -32,7 +32,9 @@ lazy val smetrics = (project
       Cats.core,
       Cats.effect,
       `cats-helper`,
-      scalatest % Test)))
+      scalatest % Test),
+  addCompilerPlugin("org.typelevel" % "kind-projector" % "0.11.3" cross CrossVersion.full)
+))
 
 lazy val prometheus = (project
   in file("modules/prometheus")
