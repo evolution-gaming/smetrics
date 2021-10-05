@@ -11,7 +11,7 @@ object Dependencies {
   val doobie           = "org.tpolecat"        %% "doobie-core"         % "0.9.0"
 
   object Cats {
-    private val version = "2.3.0"
+    private val version = "2.3.1"
     val core   = "org.typelevel" %% "cats-core"   % version
     val effect = "org.typelevel" %% "cats-effect" % "2.4.1"
   }
