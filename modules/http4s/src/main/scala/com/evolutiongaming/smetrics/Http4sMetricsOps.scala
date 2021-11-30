@@ -4,7 +4,7 @@ import cats.Monad
 import cats.effect._
 import cats.syntax.all._
 import com.evolutiongaming.smetrics.MetricsHelper._
-import org.http4s.metrics.TerminationType.{Abnormal, Error, Timeout}
+import org.http4s.metrics.TerminationType.{Abnormal, Canceled, Error, Timeout}
 import org.http4s.metrics.{MetricsOps, TerminationType}
 import org.http4s.{Method, Status}
 
@@ -99,9 +99,10 @@ object Http4sMetricsOps {
   }
 
   private def reportTermination(t: TerminationType): String = t match {
-    case Abnormal => "abnormal"
-    case Error    => "error"
-    case Timeout  => "timeout"
+    case Abnormal(_) => "abnormal"
+    case Error(_)    => "error"
+    case Timeout     => "timeout"
+    case Canceled    => "canceled"
   }
 
   private def reportPhase(p: Phase): String = p match {
