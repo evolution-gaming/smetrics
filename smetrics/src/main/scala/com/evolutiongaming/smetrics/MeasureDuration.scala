@@ -1,7 +1,5 @@
 package com.evolutiongaming.smetrics
 
-import java.util.concurrent.TimeUnit
-
 import cats.effect.Clock
 import cats.implicits._
 import cats.{Applicative, FlatMap, ~>}
@@ -16,7 +14,7 @@ trait MeasureDuration[F[_]] {
 object MeasureDuration {
 
   def const[F[_]](value: F[F[FiniteDuration]]): MeasureDuration[F] = new MeasureDuration[F] {
-    def start = value
+    def start: F[F[FiniteDuration]] = value
   }
 
 
@@ -31,19 +29,16 @@ object MeasureDuration {
   }
 
   implicit def fromClock1[F[_]: Clock: FlatMap]: MeasureDuration[F] = {
-    val timeUnit = TimeUnit.NANOSECONDS
     val duration = for {
-      duration <- Clock[F].monotonic(timeUnit)
-    } yield {
-      FiniteDuration(duration, timeUnit)
-    }
+      duration <- Clock[F].monotonic
+    } yield duration
     fromDuration(duration)
   }
 
 
   def fromDuration[F[_] : FlatMap](time: F[FiniteDuration]): MeasureDuration[F] = {
     new MeasureDuration[F] {
-      val start = {
+      val start: F[F[FiniteDuration]] = {
         for {
           start <- time
         } yield for {
@@ -60,7 +55,7 @@ object MeasureDuration {
 
     def mapK[G[_]](f: F ~> G)(implicit F: FlatMap[F]): MeasureDuration[G] = new MeasureDuration[G] {
 
-      val start = f(self.start.map(f.apply))
+      val start: G[G[FiniteDuration]] = f(self.start.map(f.apply))
     }
   }
 

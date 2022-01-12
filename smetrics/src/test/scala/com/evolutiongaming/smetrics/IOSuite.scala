@@ -1,7 +1,8 @@
 package com.evolutiongaming.smetrics
 
-import cats.Parallel
-import cats.effect.{Concurrent, ContextShift, IO, Timer}
+import cats.effect.IO
+import cats.effect.kernel.Clock
+import cats.effect.unsafe.implicits.global
 import com.evolutiongaming.catshelper.FromFuture
 import org.scalatest.Succeeded
 
@@ -13,10 +14,7 @@ object IOSuite {
 
   implicit val executor: ExecutionContextExecutor = ExecutionContext.global
 
-  implicit val contextShiftIO: ContextShift[IO] = IO.contextShift(executor)
-  implicit val concurrentIO: Concurrent[IO]     = IO.ioConcurrentEffect
-  implicit val timerIO: Timer[IO]               = IO.timer(executor)
-  implicit val parallelIO: Parallel[IO]         = IO.ioParallel
+  implicit val measureDuration: MeasureDuration[IO] = MeasureDuration.fromClock(Clock[IO])
   implicit val fromFutureIO: FromFuture[IO]     = FromFuture.lift[IO]
 
   def runIO[A](io: IO[A], timeout: FiniteDuration = Timeout): Future[Succeeded.type] = {
