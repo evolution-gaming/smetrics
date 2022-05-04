@@ -29,7 +29,7 @@ object Prometheus {
         writer.toString
       }
 
-      override def initDefaults: F[Unit] = Sync[F].delay(io.prometheus.client.hotspot.DefaultExports.initialize())
+      override def initDefaults: F[Unit] = Sync[F].delay(io.prometheus.client.hotspot.DefaultExports.register(collectorRegistry))
     }
 
   def default[F[_] : Sync]: Prometheus[F] = apply(P.CollectorRegistry.defaultRegistry)
