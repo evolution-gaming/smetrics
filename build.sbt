@@ -44,6 +44,7 @@ lazy val prometheus = (project
     libraryDependencies ++= Seq(
       Dependencies.prometheus,
       Dependencies.prometheusCommon,
+      Dependencies.prometheusHotspot,
       scalatest % Test)))
 
 lazy val http4s = (project

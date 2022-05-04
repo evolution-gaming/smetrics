@@ -11,6 +11,9 @@ trait Prometheus[F[_]] {
   def registry: CollectorRegistry[F]
 
   def write004: F[String]
+
+  // Initializes default hotspot metrics such as JVM threads, memory, GC, etc
+  def initDefaults: F[Unit]
 }
 
 object Prometheus {
@@ -25,6 +28,8 @@ object Prometheus {
         TextFormat.write004(writer, collectorRegistry.metricFamilySamples)
         writer.toString
       }
+
+      override def initDefaults: F[Unit] = Sync[F].delay(io.prometheus.client.hotspot.DefaultExports.register(collectorRegistry))
     }
 
   def default[F[_] : Sync]: Prometheus[F] = apply(P.CollectorRegistry.defaultRegistry)
