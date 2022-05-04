@@ -12,6 +12,7 @@ trait Prometheus[F[_]] {
 
   def write004: F[String]
 
+  // Initializes default hotspot metrics such as JVM threads, memory, GC, etc
   def initDefaults: F[Unit]
 }
 
