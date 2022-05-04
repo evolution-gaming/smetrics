@@ -1,6 +1,7 @@
 package com.evolutiongaming.smetrics
 
 import cats.Monad
+import cats.data.NonEmptyList
 import cats.effect._
 import cats.syntax.all._
 import com.evolutiongaming.smetrics.MetricsHelper._
@@ -12,13 +13,14 @@ object Http4sMetricsOps {
 
   def of[F[_] : Monad](
     collectorRegistry: CollectorRegistry[F],
-    prefix: String = "http"
+    prefix: String = "http",
+    histogramBuckets: Buckets = Buckets(NonEmptyList.of(.05, .1, .25, .5, 1, 2, 4, 8))
   ): Resource[F, MetricsOps[F]] =
     for {
-      responseDuration <- collectorRegistry.summary(
+      responseDuration <- collectorRegistry.histogram(
         s"${ prefix }_response_duration_seconds",
         "Response Duration in seconds.",
-        Quantiles.Default,
+        histogramBuckets,
         LabelNames("classifier", "method", "phase")
       )
       activeRequests <- collectorRegistry.gauge(
@@ -31,10 +33,10 @@ object Http4sMetricsOps {
         "Total Requests.",
         LabelNames("classifier", "method", "status")
       )
-      abnormal <- collectorRegistry.summary(
+      abnormal <- collectorRegistry.histogram(
         s"${ prefix }_abnormal_terminations",
         "Total Abnormal Terminations.",
-        Quantiles.Default,
+        histogramBuckets,
         LabelNames("classifier", "termination_type")
       )
     } yield {
