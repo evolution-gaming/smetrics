@@ -11,6 +11,8 @@ trait Prometheus[F[_]] {
   def registry: CollectorRegistry[F]
 
   def write004: F[String]
+
+  def initDefaults: F[Unit]
 }
 
 object Prometheus {
@@ -25,6 +27,8 @@ object Prometheus {
         TextFormat.write004(writer, collectorRegistry.metricFamilySamples)
         writer.toString
       }
+
+      override def initDefaults: F[Unit] = Sync[F].delay(io.prometheus.client.hotspot.DefaultExports.initialize())
     }
 
   def default[F[_] : Sync]: Prometheus[F] = apply(P.CollectorRegistry.defaultRegistry)
