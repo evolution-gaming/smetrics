@@ -49,10 +49,10 @@ lazy val prometheus = (project
 lazy val http4s = (project
   in file("modules/http4s")
   settings commonSettings
-  dependsOn smetrics % "compile->compile;test->test"
+  dependsOn (smetrics % "compile->compile;test->test", prometheus)
   settings(
   name := "smetrics-http4s",
-  libraryDependencies += Dependencies.http4s))
+  libraryDependencies ++= Seq(Dependencies.http4s, Dependencies.http4sDsl)))
 
 lazy val doobie = (project
   in file("modules/doobie")
