@@ -31,7 +31,7 @@ class KafkaMetricsCollector[F[_]: Monad: ToTry](kafkaClientMetrics: F[Seq[Client
         val prometheusName =
           (prefix.toList :+ metric.group :+ metric.name).mkString("_").replaceAll("-", "_")
 
-        if (MetricNameRegex.matches(prometheusName)) prometheusName.some else None
+        if (MetricNameRegex.findFirstIn(prometheusName).contains(prometheusName)) prometheusName.some else None
 
       case _ => None
     }
@@ -48,11 +48,11 @@ class KafkaMetricsCollector[F[_]: Monad: ToTry](kafkaClientMetrics: F[Seq[Client
 
         prometheusName match {
           case Some(name) =>
-            metricsGroup.traverse { metric =>
+            metricsGroup.toVector.traverse { metric =>
               val tags = metric.tags.flatMap {
                 case (key, value) =>
                   val prometheusKey = key.replaceAll("-", "_")
-                  if (LabelNameRegex.matches(prometheusKey)) (prometheusKey -> value).some else None
+                  if (LabelNameRegex.findFirstIn(prometheusKey).contains(prometheusKey)) (prometheusKey -> value).some else None
               }
               val tagsKeys = tags.keys.toList.asJava
               val tagsValues = tags.values.toList.asJava
