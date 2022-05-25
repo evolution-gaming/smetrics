@@ -11,69 +11,104 @@ import org.http4s.{Method, Status}
 
 object Http4sMetricsOps {
 
-  def of[F[_] : Monad](
+  /**
+   * Difference with summaryBased is only in using histogram instead of summary for timed metrics
+   */
+  def histogramBased[F[_]: Monad](
     collectorRegistry: CollectorRegistry[F],
-    prefix: String = "http",
-    histogramBuckets: Buckets = Buckets(NonEmptyList.of(.05, .1, .25, .5, 1, 2, 4, 8))
+    prefix:            String = "http",
+    histogramBuckets:  Buckets = Buckets(NonEmptyList.of(.05, .1, .25, .5, 1, 2, 4, 8)),
   ): Resource[F, MetricsOps[F]] =
     for {
       responseDuration <- collectorRegistry.histogram(
-        s"${ prefix }_response_duration_seconds",
+        s"${prefix}_response_duration_seconds",
         "Response Duration in seconds.",
         histogramBuckets,
-        LabelNames("classifier", "method", "phase")
-      )
-      activeRequests <- collectorRegistry.gauge(
-        s"${ prefix }_active_request_count",
-        "Total Active Requests.",
-        LabelNames("classifier")
-      )
-      requests <- collectorRegistry.counter(
-        s"${ prefix }_request_count",
-        "Total Requests.",
-        LabelNames("classifier", "method", "status")
+        LabelNames("classifier", "method", "phase"),
       )
       abnormal <- collectorRegistry.histogram(
-        s"${ prefix }_abnormal_terminations",
+        s"${prefix}_abnormal_terminations",
         "Total Abnormal Terminations.",
         histogramBuckets,
-        LabelNames("classifier", "termination_type")
+        LabelNames("classifier", "termination_type"),
       )
-    } yield {
-      new MetricsOps[F] {
-        override def increaseActiveRequests(classifier: Option[String]): F[Unit] =
-          activeRequests.labels(reportClassifier(classifier)).inc()
+      metricOps <- create(collectorRegistry, prefix, responseDuration, abnormal)
+    } yield metricOps
 
-        override def decreaseActiveRequests(classifier: Option[String]): F[Unit] =
-          activeRequests.labels(reportClassifier(classifier)).dec()
+  /**
+   * Difference with histogramBased is only in using histogram instead of summary for timed metrics
+   */
+  def summaryBased[F[_]: Monad](
+    collectorRegistry: CollectorRegistry[F],
+    prefix:            String = "http",
+    quantiles:         Quantiles = Quantiles.Default,
+  ): Resource[F, MetricsOps[F]] =
+    for {
+      responseDuration <- collectorRegistry.summary(
+        s"${prefix}_response_duration_seconds",
+        "Response Duration in seconds.",
+        quantiles,
+        LabelNames("classifier", "method", "phase"),
+      )
+      abnormal <- collectorRegistry.summary(
+        s"${prefix}_abnormal_terminations",
+        "Total Abnormal Terminations.",
+        quantiles,
+        LabelNames("classifier", "termination_type"),
+      )
+      metricOps <- create(collectorRegistry, prefix, responseDuration, abnormal)
+    } yield metricOps
 
-        override def recordHeadersTime(method: Method, elapsed: Long, classifier: Option[String]): F[Unit] =
-          responseDuration
-            .labels(reportClassifier(classifier), reportMethod(method), reportPhase(Phase.Headers))
-            .observe(elapsed.nanosToSeconds)
+  private def create[F[_]: Monad, O <: Observable[F]](
+    collectorRegistry: CollectorRegistry[F],
+    prefix:            String,
+    responseDuration:  LabelValues.`3`[O],
+    abnormal:          LabelValues.`2`[O],
+  ): Resource[F, MetricsOps[F]] =
+    for {
+      activeRequests <- collectorRegistry.gauge(
+        s"${prefix}_active_request_count",
+        "Total Active Requests.",
+        LabelNames("classifier"),
+      )
+      requests <- collectorRegistry.counter(
+        s"${prefix}_request_count",
+        "Total Requests.",
+        LabelNames("classifier", "method", "status"),
+      )
+    } yield new MetricsOps[F] {
+      override def increaseActiveRequests(classifier: Option[String]): F[Unit] =
+        activeRequests.labels(reportClassifier(classifier)).inc()
 
-        override def recordTotalTime(
-          method: Method,
-          status: Status,
-          elapsed: Long,
-          classifier: Option[String]
-        ): F[Unit] =
-          responseDuration
-            .labels(reportClassifier(classifier), reportMethod(method), reportPhase(Phase.Body))
-            .observe(elapsed.nanosToSeconds) >>
-            requests
-              .labels(reportClassifier(classifier), reportMethod(method), reportStatus(status))
-              .inc()
+      override def decreaseActiveRequests(classifier: Option[String]): F[Unit] =
+        activeRequests.labels(reportClassifier(classifier)).dec()
 
-        override def recordAbnormalTermination(
-          elapsed: Long,
-          terminationType: TerminationType,
-          classifier: Option[String]
-        ): F[Unit] =
-          abnormal
-            .labels(reportClassifier(classifier), reportTermination(terminationType))
-            .observe(elapsed.nanosToSeconds)
-      }
+      override def recordHeadersTime(method: Method, elapsed: Long, classifier: Option[String]): F[Unit] =
+        responseDuration
+          .labels(reportClassifier(classifier), reportMethod(method), reportPhase(Phase.Headers))
+          .observe(elapsed.nanosToSeconds)
+
+      override def recordTotalTime(
+        method:     Method,
+        status:     Status,
+        elapsed:    Long,
+        classifier: Option[String],
+      ): F[Unit] =
+        responseDuration
+          .labels(reportClassifier(classifier), reportMethod(method), reportPhase(Phase.Body))
+          .observe(elapsed.nanosToSeconds) >>
+          requests
+            .labels(reportClassifier(classifier), reportMethod(method), reportStatus(status))
+            .inc()
+
+      override def recordAbnormalTermination(
+        elapsed:         Long,
+        terminationType: TerminationType,
+        classifier:      Option[String],
+      ): F[Unit] =
+        abnormal
+          .labels(reportClassifier(classifier), reportTermination(terminationType))
+          .observe(elapsed.nanosToSeconds)
     }
 
   private def reportStatus(status: Status): String =
@@ -112,9 +147,9 @@ object Http4sMetricsOps {
     case Phase.Body    => "body"
   }
 
-  private sealed trait Phase
+  sealed private trait Phase
   private object Phase {
     case object Headers extends Phase
-    case object Body extends Phase
+    case object Body    extends Phase
   }
 }

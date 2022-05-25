@@ -3,10 +3,7 @@ package com.evolutiongaming.smetrics
 import cats.implicits._
 import cats.{Applicative, ~>}
 
-trait Summary[F[_]] {
-
-  def observe(value: Double): F[Unit]
-}
+trait Summary[F[_]] extends Observable[F]
 
 object Summary {
 

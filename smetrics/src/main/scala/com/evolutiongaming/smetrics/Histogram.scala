@@ -3,10 +3,7 @@ package com.evolutiongaming.smetrics
 import cats.implicits._
 import cats.{Applicative, ~>}
 
-trait Histogram[F[_]] {
-
-  def observe(value: Double): F[Unit]
-}
+trait Histogram[F[_]] extends Observable [F]
 
 object Histogram {
 
