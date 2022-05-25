@@ -59,12 +59,12 @@ object Http4sMetricsOps {
       metricOps <- create(collectorRegistry, prefix, responseDuration, abnormal)
     } yield metricOps
 
-  private def create[F[_]: Monad, O <: Observable[F]](
-    collectorRegistry: CollectorRegistry[F],
-    prefix:            String,
-    responseDuration:  LabelValues.`3`[O],
-    abnormal:          LabelValues.`2`[O],
-  ): Resource[F, MetricsOps[F]] =
+  private def create[F[_]: Monad, A](
+    collectorRegistry:   CollectorRegistry[F],
+    prefix:              String,
+    responseDuration:    LabelValues.`3`[A],
+    abnormal:            LabelValues.`2`[A],
+  )(implicit observable: Observable[F, A]): Resource[F, MetricsOps[F]] =
     for {
       activeRequests <- collectorRegistry.gauge(
         s"${prefix}_active_request_count",
@@ -83,33 +83,48 @@ object Http4sMetricsOps {
       override def decreaseActiveRequests(classifier: Option[String]): F[Unit] =
         activeRequests.labels(reportClassifier(classifier)).dec()
 
-      override def recordHeadersTime(method: Method, elapsed: Long, classifier: Option[String]): F[Unit] =
-        responseDuration
+      override def recordHeadersTime(method: Method, elapsed: Long, classifier: Option[String]): F[Unit] = {
+        val responseDurationLabeled = responseDuration
           .labels(reportClassifier(classifier), reportMethod(method), reportPhase(Phase.Headers))
-          .observe(elapsed.nanosToSeconds)
+        observable.observe(responseDurationLabeled, elapsed.nanosToSeconds)
+      }
 
       override def recordTotalTime(
         method:     Method,
         status:     Status,
         elapsed:    Long,
         classifier: Option[String],
-      ): F[Unit] =
-        responseDuration
+      ): F[Unit] = {
+        val responseDurationLabeled = responseDuration
           .labels(reportClassifier(classifier), reportMethod(method), reportPhase(Phase.Body))
-          .observe(elapsed.nanosToSeconds) >>
+        observable.observe(responseDurationLabeled, elapsed.nanosToSeconds) >>
           requests
             .labels(reportClassifier(classifier), reportMethod(method), reportStatus(status))
             .inc()
+      }
 
       override def recordAbnormalTermination(
         elapsed:         Long,
         terminationType: TerminationType,
         classifier:      Option[String],
-      ): F[Unit] =
-        abnormal
-          .labels(reportClassifier(classifier), reportTermination(terminationType))
-          .observe(elapsed.nanosToSeconds)
+      ): F[Unit] = {
+        val abnormalLabeled = abnormal.labels(reportClassifier(classifier), reportTermination(terminationType))
+        observable.observe(abnormalLabeled, elapsed.nanosToSeconds)
+      }
     }
+
+  /**
+   * Just a wrapper around histogram and summary so we can abstract over them in method create.
+   */
+  private trait Observable[F[_], A] {
+    def observe(metric: A, value: Double): F[Unit]
+  }
+  implicit private def summaryObservable[F[_]]: Observable[F, Summary[F]] = new Observable[F, Summary[F]] {
+    override def observe(metric: Summary[F], value: Double): F[Unit] = metric.observe(value)
+  }
+  implicit private def histogramObservable[F[_]]: Observable[F, Histogram[F]] = new Observable[F, Histogram[F]] {
+    override def observe(metric: Histogram[F], value: Double): F[Unit] = metric.observe(value)
+  }
 
   private def reportStatus(status: Status): String =
     status.code match {
