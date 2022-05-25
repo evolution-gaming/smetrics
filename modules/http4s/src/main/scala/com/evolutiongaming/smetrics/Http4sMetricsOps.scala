@@ -12,9 +12,17 @@ import org.http4s.{Method, Status}
 object Http4sMetricsOps {
 
   /**
-   * Difference with summaryBased is only in using histogram instead of summary for timed metrics
+   * Old, deprecated method. Uses summary for timed metrics. Doesn't allow to choose between summary and histogram.
+   * Use [[histogram]] or [[summary]] directly instead.
    */
-  def histogramBased[F[_]: Monad](
+  @deprecated(message = "Use summary or histogram instead", since = "1.0.2")
+  def of[F[_]: Monad](collectorRegistry: CollectorRegistry[F], prefix: String = "http"): Resource[F, MetricsOps[F]] =
+    summary(collectorRegistry, prefix)
+
+  /**
+   * Difference with [[summary]] is only in using histogram instead of summary for timed metrics.
+   */
+  def histogram[F[_]: Monad](
     collectorRegistry: CollectorRegistry[F],
     prefix:            String = "http",
     histogramBuckets:  Buckets = Buckets(NonEmptyList.of(.05, .1, .25, .5, 1, 2, 4, 8)),
@@ -36,9 +44,9 @@ object Http4sMetricsOps {
     } yield metricOps
 
   /**
-   * Difference with histogramBased is only in using histogram instead of summary for timed metrics
+   * Difference with [[histogram]] is only in using summary instead of histogram for timed metrics
    */
-  def summaryBased[F[_]: Monad](
+  def summary[F[_]: Monad](
     collectorRegistry: CollectorRegistry[F],
     prefix:            String = "http",
     quantiles:         Quantiles = Quantiles.Default,
@@ -114,7 +122,7 @@ object Http4sMetricsOps {
     }
 
   /**
-   * Just a wrapper around histogram and summary so we can abstract over them in method create.
+   * Just a wrapper around histogram and summary so we can abstract over them in [[create]].
    */
   private trait Observable[F[_], A] {
     def observe(metric: A, value: Double): F[Unit]
