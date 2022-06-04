@@ -19,7 +19,7 @@ lazy val root = (project
   settings commonSettings
   settings (
     publish / skip := true,
-    name := "smetrics")
+    name := "smetrics-parent")
   aggregate(smetrics, prometheus, http4s, doobie, kafka))
 
 lazy val smetrics = (project
