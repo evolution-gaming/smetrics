@@ -15,9 +15,7 @@ lazy val commonSettings = Seq(
   organizationName := "Evolution",
   organizationHomepage := Some(url("http://evolution.com")),
   scalaVersion := crossScalaVersions.value.head,
-    // TODO cross compile to 3.2.0 but it depends on skafka which depends on smetrics
-  // so smetrics has to be published before bumping other modules here
-  crossScalaVersions := Seq("2.13.8", "2.12.16"),
+  crossScalaVersions := Seq("2.13.8", "3.2.0", "2.12.16"),
   publishTo := Some(Resolver.evolutionReleases),
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
   releaseCrossBuild := true,
@@ -29,8 +27,10 @@ lazy val root = (project
   settings commonSettings
   settings (
     publish / skip := true,
-    name := "smetrics-parent")
-  aggregate(smetrics, prometheus, http4s, doobie, kafka))
+    name := "smetrics-parent"
+  )
+    // todo add kafka after skafka if cross published to scala 3 (it needs smetrics)
+  aggregate(smetrics, prometheus, http4s, doobie))
 
 lazy val smetrics = (project
   in file("smetrics")
@@ -38,7 +38,6 @@ lazy val smetrics = (project
   settings(
     name := "smetrics",
     scalacOptsFailOnWarn := Some(false),
-    crossScalaVersions := Seq("2.13.8", "3.2.0", "2.12.16"),
     libraryDependencies ++= Seq(
       Cats.core,
       Cats.effect,
