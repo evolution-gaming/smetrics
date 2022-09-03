@@ -1,5 +1,13 @@
 import Dependencies._
 
+def crossSettings[T](scalaVersion: String, if3: Seq[T], if2: Seq[T]) = {
+  CrossVersion.partialVersion(scalaVersion) match {
+    case Some((3, _)) => if3
+    case Some((2, 12 | 13)) => if2
+    case _ => Nil
+  }
+}
+
 lazy val commonSettings = Seq(
   organization := "com.evolutiongaming",
   homepage := Some(new URL("http://github.com/evolution-gaming/smetrics")),
@@ -7,7 +15,9 @@ lazy val commonSettings = Seq(
   organizationName := "Evolution",
   organizationHomepage := Some(url("http://evolution.com")),
   scalaVersion := crossScalaVersions.value.head,
-  crossScalaVersions := Seq("2.13.5", "2.12.13"),
+    // TODO cross compile to 3.2.0 but it depends on skafka which depends on smetrics
+  // so smetrics has to be published before bumping other modules here
+  crossScalaVersions := Seq("2.13.8", "2.12.16"),
   publishTo := Some(Resolver.evolutionReleases),
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
   releaseCrossBuild := true,
@@ -27,12 +37,23 @@ lazy val smetrics = (project
   settings commonSettings
   settings(
     name := "smetrics",
+    scalacOptsFailOnWarn := Some(false),
+    crossScalaVersions := Seq("2.13.8", "3.2.0", "2.12.16"),
     libraryDependencies ++= Seq(
       Cats.core,
       Cats.effect,
       `cats-helper`,
       scalatest % Test),
-  addCompilerPlugin("org.typelevel" % "kind-projector" % "0.13.0" cross CrossVersion.full)
+    libraryDependencies ++= crossSettings(
+      scalaVersion.value,
+      if3 = Nil,
+      if2 = List(compilerPlugin("org.typelevel" % "kind-projector" % "0.13.2" cross CrossVersion.full))
+    ),
+    scalacOptions ++= crossSettings(
+      scalaVersion.value,
+      if3 = Seq("-Ykind-projector:underscores", "-language:implicitConversions"),
+      if2 = Seq("-Xsource:3", "-P:kind-projector:underscore-placeholders")
+    )
 ))
 
 lazy val prometheus = (project
