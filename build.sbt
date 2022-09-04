@@ -1,3 +1,4 @@
+import sbt.librarymanagement.For3Use2_13
 import Dependencies._
 
 def crossSettings[T](scalaVersion: String, if3: Seq[T], if2: Seq[T]) = {
@@ -7,6 +8,8 @@ def crossSettings[T](scalaVersion: String, if3: Seq[T], if2: Seq[T]) = {
     case _ => Nil
   }
 }
+
+def is3(scalaVersion: String): Boolean = scalaVersion.startsWith("3")
 
 lazy val commonSettings = Seq(
   organization := "com.evolutiongaming",
@@ -29,8 +32,7 @@ lazy val root = (project
     publish / skip := true,
     name := "smetrics-parent"
   )
-    // todo add kafka after skafka if cross published to scala 3 (it needs smetrics)
-  aggregate(smetrics, prometheus, http4s, doobie))
+  aggregate(smetrics, prometheus, http4s, doobie, kafka))
 
 lazy val smetrics = (project
   in file("smetrics")
@@ -64,28 +66,42 @@ lazy val prometheus = (project
     libraryDependencies ++= Seq(
       Dependencies.prometheus,
       Dependencies.prometheusCommon,
-      scalatest % Test)))
+      scalatest % Test
+    )
+  )
+)
 
 lazy val kafka = (project
   in file("modules/kafka")
   settings commonSettings
   dependsOn prometheus % "compile->compile;test->test"
   settings(
-  name := "smetrics-prometheus-kafka",
-  libraryDependencies += Dependencies.skafka))
+    name := "smetrics-prometheus-kafka",
+    publish / skip := is3(scalaVersion.value),
+    libraryDependencies ++= crossSettings(
+      scalaVersion.value,
+      if3 = Nil,
+      if2 = List(Dependencies.skafka),
+    ),
+  )
+)
 
 lazy val http4s = (project
   in file("modules/http4s")
   settings commonSettings
   dependsOn smetrics % "compile->compile;test->test"
   settings(
-  name := "smetrics-http4s",
-  libraryDependencies += Dependencies.http4s))
+    name := "smetrics-http4s",
+    libraryDependencies += Dependencies.http4s
+  )
+)
 
 lazy val doobie = (project
   in file("modules/doobie")
   settings commonSettings
   dependsOn smetrics % "compile->compile;test->test"
   settings(
-  name := "smetrics-doobie",
-  libraryDependencies += Dependencies.doobie))
+    name := "smetrics-doobie",
+    libraryDependencies += Dependencies.doobie
+  )
+)
