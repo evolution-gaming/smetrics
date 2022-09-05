@@ -31,18 +31,18 @@ class MeasureDurationSpec extends AnyFunSuite with Matchers {
 
   test("MeasureDurationOps.measured") {
     val test = Sleep[IdState].sleep(3.seconds).measured {
-      time => StateT.modify(old => State(time :: old.timestamps))
+      time => StateT.modify[Id, State](old => State(time :: old.timestamps))
     }
 
     test.runS(State(List(0.nano, 0.nano))) shouldEqual State(3.seconds :: Nil)
   }
 
   test("MeasureDurationOps.measuredCase success") {
-    val test = Sleep[StateT[Either[Throwable, *], State, *]]
+    val test = Sleep[StateT[Either[Throwable, _], State, _]]
       .sleep(3.seconds)
       .measuredCase(
-        time => StateT.modify(old => State(time +: old.timestamps)),
-        _ => StateT.modify(old => State(-1.nano +: old.timestamps))
+        time => StateT.modify[Either[Throwable, _], State](old => State(time +: old.timestamps)),
+        _ => StateT.modify[Either[Throwable, _], State](old => State(-1.nano +: old.timestamps))
       )
 
     test.runS(State(List(0.nano, 0.nano))) shouldEqual State(3.seconds :: Nil).asRight[Throwable]
@@ -89,16 +89,17 @@ object MeasureDurationSpec {
     def apply[F[_]](implicit ev: Sleep[F]): Sleep[F] = ev
   }
 
-  implicit def sleep[F[_]: Applicative]: Sleep[StateT[F, State, *]] =
-    new Sleep[StateT[F, State, *]] {
+  implicit def sleep[F[_]: Applicative]: Sleep[StateT[F, State, _]] ={
+    new Sleep[StateT[F, State, _]] {
       override def sleep(duration: FiniteDuration): StateT[F, State, Unit] =
-        StateT.modify { state: State =>
+        StateT.modify { state =>
           State(state.timestamps.map(_ + duration))
         }
     }
+  }
 
-  implicit def clock[F[_] : Monad]: Clock[StateT[F, State, *]] =
-    new Clock[StateT[F, State, *]] {
+  implicit def clock[F[_] : Monad]: Clock[StateT[F, State, _]] =
+    new Clock[StateT[F, State, _]] {
       override def realTime: StateT[F, State, FiniteDuration] =
         StateT { state =>
           val (state1, timestamp) = state.timestamp
@@ -111,7 +112,7 @@ object MeasureDurationSpec {
           (state1, timestamp).pure[F]
         }
 
-      override def applicative: Applicative[StateT[F, State, *]] =
-        Applicative[StateT[F, State, *]]
+      override def applicative: Applicative[StateT[F, State, _]] =
+        Applicative[StateT[F, State, _]]
     }
 }
