@@ -33,7 +33,7 @@ object DoobieMetrics {
     for {
       queryTimeSummary   <- queryTimeSummary
       queryResultCounter <- queryResultCounter
-    } yield { name: String =>
+    } yield { (name: String) =>
       def result(success: Boolean) = if (success) "success" else "failure"
       new DoobieMetrics[F] {
         override def query(time: FiniteDuration, success: Boolean): F[Unit] =
