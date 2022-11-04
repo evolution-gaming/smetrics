@@ -29,7 +29,7 @@ class KafkaMetricsCollector[F[_]: Monad: ToTry](kafkaClientMetrics: F[Seq[Client
     (metric.name, metric.description) match {
       case (name, description) if name.nonEmpty && description.nonEmpty =>
         val prometheusName =
-          (prefix.toList :+ metric.group :+ metric.name).mkString("_").replaceAll("-", "_")
+          (prefix.toList :+ metric.group :+ metric.name).mkString("_").replaceAll("-", "_").replaceAll("\\.", "_")
 
         if (MetricNameRegex.findFirstIn(prometheusName).contains(prometheusName)) prometheusName.some else None
 
