@@ -6,6 +6,11 @@
 [![Version](https://img.shields.io/badge/version-click-blue)](https://evolution.jfrog.io/artifactory/api/search/latestVersion?g=com.evolutiongaming&a=smetrics_2.13&repos=public)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellowgreen.svg)](https://opensource.org/licenses/MIT)
 
+## Features:
+* tagless final api via [cats](https://typelevel.org/cats/)
+* improved abstraction for matching labels names and label values
+* resource safety
+* detaching metrics backend - prometheus dependency is one of the backend implementations
 
 ## Example of http metrics
 
