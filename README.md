@@ -17,7 +17,7 @@ trait HttpMetrics[F[_]] {
 
   def latency(client: String, method: String, resource: String, duration: FiniteDuration): F[Unit]
 
-  def count(client: String, method: String, resource: String): F[Unit]
+  def count(client: String, method: String, resource: String, success: Boolean): F[Unit]
 
   def enqueue(client: String): F[Unit]
 
