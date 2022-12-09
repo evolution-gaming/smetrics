@@ -32,7 +32,7 @@ jobs:
         if: success()
         env:
           COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
-        run: sbt ++${{ matrix.scala }} coverageReport coverageAggregate coveralls
+        run: sbt ++${{ matrix.scala }} coverageAggregate coveralls
 
       - name: slack
         uses: homoluctus/slatify@master
