@@ -28,7 +28,7 @@ jobs:
       - name: build ${{ matrix.scala }}
         run: sbt ++${{ matrix.scala }} clean coverage test
 
-      - name: test coverage
+      - name: test coverageReport coverageAggregate coveralls
         if: success()
         env:
           COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
