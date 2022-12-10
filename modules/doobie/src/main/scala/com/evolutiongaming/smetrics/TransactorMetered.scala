@@ -1,16 +1,15 @@
 package com.evolutiongaming.smetrics
 
 import java.sql.Connection
-
 import cats.data.Kleisli
+import cats.effect.MonadCancelThrow
 import cats.implicits._
-import com.evolutiongaming.catshelper.BracketThrowable
 import doobie.free.connection.ConnectionOp
 import doobie.util.transactor.{Interpreter, Transactor}
 
 object TransactorMetered {
 
-  def apply[F[_]: BracketThrowable: MeasureDuration](
+  def apply[F[_]: MonadCancelThrow: MeasureDuration](
     transactor: Transactor[F],
     metrics: DoobieMetrics[F]
   ): Transactor[F] =

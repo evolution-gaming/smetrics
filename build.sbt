@@ -43,7 +43,7 @@ lazy val smetrics = (project
     libraryDependencies ++= Seq(
       Cats.core,
       Cats.effect,
-      `cats-helper`,
+      `cats-helper` % Test,
       scalatest % Test),
     libraryDependencies ++= crossSettings(
       scalaVersion.value,
@@ -102,6 +102,9 @@ lazy val doobie = (project
   dependsOn smetrics % "compile->compile;test->test"
   settings(
     name := "smetrics-doobie",
-    libraryDependencies += Dependencies.doobie
+    libraryDependencies += Dependencies.doobie,
+  libraryDependencies ++= Seq(
+    Dependencies.doobie,
+    `cats-helper`)
   )
 )
