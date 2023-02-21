@@ -83,9 +83,7 @@ object KafkaMetricsRegistry {
           } else {
             results
               .groupBy(metric => (metric.name, metric.group, metric.tags))
-              .view
-              .mapValues(metrics => metrics.head)
-              .values
+              .map { case (_, values) => values.head }
               .toSeq
           }
         }
