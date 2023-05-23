@@ -32,7 +32,7 @@ lazy val root = (project
     publish / skip := true,
     name := "smetrics-parent"
   )
-  aggregate(smetrics, prometheus, http4s, doobie, kafka))
+  aggregate(smetrics, prometheus, http4s, doobie))
 
 lazy val smetrics = (project
   in file("smetrics")
@@ -68,21 +68,6 @@ lazy val prometheus = (project
       Dependencies.prometheusCommon,
       scalatest % Test
     )
-  )
-)
-
-lazy val kafka = (project
-  in file("modules/kafka")
-  settings commonSettings
-  dependsOn prometheus % "compile->compile;test->test"
-  settings(
-    name := "smetrics-prometheus-kafka",
-    publish / skip := is3(scalaVersion.value),
-    libraryDependencies ++= crossSettings(
-      scalaVersion.value,
-      if3 = Nil,
-      if2 = List(Dependencies.skafka),
-    ),
   )
 )
 

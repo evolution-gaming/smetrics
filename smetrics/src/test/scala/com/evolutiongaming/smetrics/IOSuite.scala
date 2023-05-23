@@ -3,10 +3,10 @@ package com.evolutiongaming.smetrics
 import cats.effect.IO
 import cats.effect.kernel.Clock
 import cats.effect.unsafe.implicits.global
-import com.evolutiongaming.catshelper.FromFuture
+import com.evolutiongaming.catshelper.{FromFuture, MeasureDuration}
 import org.scalatest.Succeeded
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 
 object IOSuite {
