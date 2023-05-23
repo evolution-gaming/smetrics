@@ -4,6 +4,7 @@ import java.sql.Connection
 import cats.data.Kleisli
 import cats.effect.BracketThrow
 import cats.implicits._
+import com.evolutiongaming.catshelper.MeasureDuration
 import doobie.free.connection.ConnectionOp
 import doobie.util.transactor.{Interpreter, Transactor}
 
