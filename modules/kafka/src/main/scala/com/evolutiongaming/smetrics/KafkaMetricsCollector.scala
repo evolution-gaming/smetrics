@@ -13,6 +13,7 @@ import java.util
 import scala.jdk.CollectionConverters._
 import scala.util.matching.Regex
 
+@deprecated("Use com.evolutiongaming.skafka.metrics.KafkaMetricsCollector from skafka-metrics", "0.4.0")
 class KafkaMetricsCollector[F[_]: Monad: ToTry](kafkaClientMetrics: F[Seq[ClientMetric[F]]], prefix: Option[String] = None) extends Collector {
 
   protected def getCollectorType(metric: ClientMetric[F]): Collector.Type = {
