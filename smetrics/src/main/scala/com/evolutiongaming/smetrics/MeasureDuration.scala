@@ -3,6 +3,7 @@ package com.evolutiongaming.smetrics
 import cats.effect.Clock
 import cats.implicits._
 import cats.{Applicative, FlatMap, ~>}
+import com.evolutiongaming.catshelper
 
 import scala.concurrent.duration._
 
@@ -28,6 +29,11 @@ object MeasureDuration {
   def fromClock[F[_]: FlatMap](clock: Clock[F]): MeasureDuration[F] = {
     fromClock1(clock, FlatMap[F])
   }
+
+  def fromCatsHelper[F[_]](implicit csMeasureDuration: catshelper.MeasureDuration[F]): MeasureDuration[F] =
+    new MeasureDuration[F] {
+      override def start: F[F[FiniteDuration]] = csMeasureDuration.start
+    }
 
   implicit def fromClock1[F[_]: Clock: FlatMap]: MeasureDuration[F] = {
     val duration = for {
@@ -57,6 +63,10 @@ object MeasureDuration {
     def mapK[G[_]](f: F ~> G)(implicit F: FlatMap[F]): MeasureDuration[G] = new MeasureDuration[G] {
 
       val start: G[G[FiniteDuration]] = f(self.start.map(f.apply))
+    }
+
+    def toCatsHelper: catshelper.MeasureDuration[F] = new catshelper.MeasureDuration[F] {
+      override def start: F[F[FiniteDuration]] = self.start
     }
   }
 
