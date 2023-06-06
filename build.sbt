@@ -30,6 +30,7 @@ lazy val smetrics = (project
     libraryDependencies ++= Seq(
       Cats.core,
       Cats.effect,
+      `cats-helper` % Optional,
       `cats-helper` % Test,
       scalatest % Test),
   addCompilerPlugin("org.typelevel" % "kind-projector" % "0.13.0" cross CrossVersion.full)
