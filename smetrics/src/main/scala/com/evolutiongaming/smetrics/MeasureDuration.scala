@@ -6,6 +6,7 @@ import cats.{Applicative, FlatMap, ~>}
 
 import scala.concurrent.duration._
 
+@deprecated("Use com.evolutiongaming.catshelper.MeasureDuration from cats-helper 3.5.0 and up", "1.2.0")
 trait MeasureDuration[F[_]] {
 
   def start: F[F[FiniteDuration]]

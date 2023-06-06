@@ -1,4 +1,3 @@
-import sbt.librarymanagement.For3Use2_13
 import Dependencies._
 
 def crossSettings[T](scalaVersion: String, if3: Seq[T], if2: Seq[T]) = {
@@ -22,7 +21,9 @@ lazy val commonSettings = Seq(
   publishTo := Some(Resolver.evolutionReleases),
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
   releaseCrossBuild := true,
-  Compile / doc / scalacOptions += "-no-link-warnings")
+  Compile / doc / scalacOptions += "-no-link-warnings",
+  versionScheme := Some(VersionScheme.SemVerSpec),
+)
 
 
 lazy val root = (project
