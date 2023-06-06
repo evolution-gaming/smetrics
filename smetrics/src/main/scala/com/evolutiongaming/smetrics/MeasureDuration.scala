@@ -69,6 +69,10 @@ object MeasureDuration {
 
       val start = f(self.start.map(f.apply))
     }
+
+    def toCatsHelper: catshelper.MeasureDuration[F] = new catshelper.MeasureDuration[F] {
+      override def start: F[F[FiniteDuration]] = self.start
+    }
   }
 
 }
