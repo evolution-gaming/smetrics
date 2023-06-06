@@ -7,8 +7,11 @@ import cats.implicits._
 import doobie.free.connection.ConnectionOp
 import doobie.util.transactor.{Interpreter, Transactor}
 
+import scala.annotation.nowarn
+
 object TransactorMetered {
 
+  @nowarn("msg=deprecated")
   def apply[F[_]: BracketThrow: MeasureDuration](
     transactor: Transactor[F],
     metrics: DoobieMetrics[F]

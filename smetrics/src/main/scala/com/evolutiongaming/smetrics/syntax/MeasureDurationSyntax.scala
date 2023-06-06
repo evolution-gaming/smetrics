@@ -7,6 +7,7 @@ import cats.syntax.either._
 import cats.{Monad, MonadError}
 import com.evolutiongaming.smetrics.MeasureDuration
 
+import scala.annotation.nowarn
 import scala.concurrent.duration.FiniteDuration
 
 
@@ -32,6 +33,7 @@ final class MeasureDurationOps[F[_], A](private val fa: F[A]) extends AnyVal {
    * @param handleF function to consume calculated duration
    * @return measured source F[A]
    */
+  @nowarn("msg=deprecated")
   def measured(
     handleF: FiniteDuration => F[Unit]
   )(implicit F: Monad[F], measureDuration: MeasureDuration[F]): F[A] =
@@ -59,6 +61,7 @@ final class MeasureDurationOps[F[_], A](private val fa: F[A]) extends AnyVal {
    * @param failureF function to consume calculated duration in case of failure
    * @return measured source F[A]
    */
+  @nowarn("msg=deprecated")
   def measuredCase[E](
     successF: FiniteDuration => F[Unit],
     failureF: FiniteDuration => F[Unit]
