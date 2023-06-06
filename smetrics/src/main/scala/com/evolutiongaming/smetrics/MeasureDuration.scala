@@ -1,12 +1,12 @@
 package com.evolutiongaming.smetrics
 
 import java.util.concurrent.TimeUnit
+
 import cats.effect.Clock
 import cats.implicits._
 import cats.{Applicative, FlatMap, ~>}
 import com.evolutiongaming.catshelper
 
-import scala.annotation.nowarn
 import scala.concurrent.duration._
 
 @deprecated("Use com.evolutiongaming.catshelper.MeasureDuration from cats-helper 3.5.0 and up", "1.2.0")
@@ -15,7 +15,7 @@ trait MeasureDuration[F[_]] {
   def start: F[F[FiniteDuration]]
 }
 
-object MeasureDuration extends MeasureDurationLowPriorityImplicits {
+object MeasureDuration {
 
   def const[F[_]](value: F[F[FiniteDuration]]): MeasureDuration[F] = new MeasureDuration[F] {
     def start = value
@@ -31,6 +31,11 @@ object MeasureDuration extends MeasureDurationLowPriorityImplicits {
   def fromClock[F[_]: FlatMap](clock: Clock[F]): MeasureDuration[F] = {
     fromClock1(clock, FlatMap[F])
   }
+
+  def fromCatsHelper[F[_]](implicit csMeasureDuration: catshelper.MeasureDuration[F]): MeasureDuration[F] =
+    new MeasureDuration[F] {
+      override def start: F[F[FiniteDuration]] = csMeasureDuration.start
+    }
 
   implicit def fromClock1[F[_]: Clock: FlatMap]: MeasureDuration[F] = {
     val timeUnit = TimeUnit.NANOSECONDS
@@ -66,12 +71,4 @@ object MeasureDuration extends MeasureDurationLowPriorityImplicits {
     }
   }
 
-}
-
-abstract private[smetrics] class MeasureDurationLowPriorityImplicits {
-  @nowarn("cat=deprecation")
-  implicit def fromCatsHelper[F[_]](implicit csMeasureDuration: catshelper.MeasureDuration[F]): MeasureDuration[F] =
-    new MeasureDuration[F] {
-      override def start: F[F[FiniteDuration]] = csMeasureDuration.start
-    }
 }
