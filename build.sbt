@@ -44,6 +44,7 @@ lazy val smetrics = (project
     libraryDependencies ++= Seq(
       Cats.core,
       Cats.effect,
+      `cats-helper` % Optional,
       `cats-helper` % Test,
       scalatest % Test),
     libraryDependencies ++= crossSettings(
