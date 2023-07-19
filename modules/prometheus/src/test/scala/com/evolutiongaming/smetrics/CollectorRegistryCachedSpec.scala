@@ -3,7 +3,7 @@ package com.evolutiongaming.smetrics
 import cats.data.NonEmptyList
 import cats.effect.IO
 import com.evolutiongaming.smetrics.CollectorRegistry.CachedRegistryException
-import io.prometheus.client.CollectorRegistry
+import io.prometheus.client.{ CollectorRegistry => JavaRegistry }
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -15,7 +15,7 @@ class CollectorRegistryCachedSpec extends AnyWordSpec with Matchers {
 
     "create multiple gauges with same name" in {
       val res = for {
-        pr <- Prometheus.cached[IO](CollectorRegistry.defaultRegistry)
+        pr <- Prometheus.cached[IO](JavaRegistry.defaultRegistry)
         g1 <- pr.registry.gauge("foo", "bar", LabelNames("baz"))
         g2 <- pr.registry.gauge("foo", "bar", LabelNames("baz"))
       } yield (pr, g1, g2)
@@ -39,7 +39,7 @@ class CollectorRegistryCachedSpec extends AnyWordSpec with Matchers {
 
     "create multiple gauges with same name but different labels" in {
       val res = for {
-        p <- Prometheus.cached[IO](CollectorRegistry.defaultRegistry)
+        p <- Prometheus.cached[IO](JavaRegistry.defaultRegistry)
         _ <- p.registry.gauge("foo", "bar", LabelNames("baz"))
         _ <- p.registry.gauge("foo", "bar", LabelNames("ams"))
       } yield {}
@@ -54,7 +54,7 @@ class CollectorRegistryCachedSpec extends AnyWordSpec with Matchers {
 
     "create gauge and then counter with same name" in {
       val res = for {
-        p <- Prometheus.cached[IO](CollectorRegistry.defaultRegistry)
+        p <- Prometheus.cached[IO](JavaRegistry.defaultRegistry)
         _ <- p.registry.gauge("foo", "bar", LabelNames("baz"))
         _ <- p.registry.counter("foo", "bar", LabelNames("ams"))
       } yield {}
@@ -69,7 +69,7 @@ class CollectorRegistryCachedSpec extends AnyWordSpec with Matchers {
 
     "create multiple counters with same name" in {
       val res = for {
-        pr <- Prometheus.cached[IO](CollectorRegistry.defaultRegistry)
+        pr <- Prometheus.cached[IO](JavaRegistry.defaultRegistry)
         c1 <- pr.registry.counter("foo", "bar", LabelNames("baz"))
         c2 <- pr.registry.counter("foo", "bar", LabelNames("baz"))
       } yield (pr, c1, c2)
@@ -93,7 +93,7 @@ class CollectorRegistryCachedSpec extends AnyWordSpec with Matchers {
 
     "create multiple summaries with same name" in {
       val res = for {
-        pr <- Prometheus.cached[IO](CollectorRegistry.defaultRegistry)
+        pr <- Prometheus.cached[IO](JavaRegistry.defaultRegistry)
         s1 <- pr.registry.summary(
           "foo",
           "bar",
@@ -129,7 +129,7 @@ class CollectorRegistryCachedSpec extends AnyWordSpec with Matchers {
 
     "create multiple histograms with same name" in {
       val res = for {
-        pr <- Prometheus.cached[IO](CollectorRegistry.defaultRegistry)
+        pr <- Prometheus.cached[IO](JavaRegistry.defaultRegistry)
         h1 <- pr.registry.histogram(
           "foo",
           "bar",
