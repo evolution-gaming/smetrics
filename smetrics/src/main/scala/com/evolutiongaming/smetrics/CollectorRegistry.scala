@@ -74,7 +74,10 @@ trait CollectorRegistry[F[_]] {
 
   def prefixed(prefix: String): CollectorRegistry[F] = new CollectorRegistry.Prefixed[F](this, prefix)
 
-  def cached(implicit F: Concurrent[F]): Resource[F, CollectorRegistry[F]] = CollectorRegistry.cached(this)
+  def withCaching(implicit F: Concurrent[F]): Resource[F, CollectorRegistry[F]] =
+    for {
+      cache <- SerialRef.of[Resource[F, *], Map[String, CollectorRegistry.Cached.Entry]](Map.empty)
+    } yield new CollectorRegistry.Cached(this, cache)
 }
 
 object CollectorRegistry {
@@ -262,129 +265,133 @@ object CollectorRegistry {
 
   final class CachedRegistryException(message: String, cause: Throwable = null) extends RuntimeException(message, cause)
 
-  private def cached[F[_] : Concurrent](registry: CollectorRegistry[F]): Resource[F, CollectorRegistry[F]] = {
-
+  private[smetrics] object Cached {
     case class Entry(collector: Any, names: List[String], ofType: String)
+  }
 
-    for {
-      cache <- SerialRef.of[Resource[F, *], Map[String, Entry]](Map.empty)
-    } yield new CollectorRegistry[F] {
+  private[smetrics] class Cached[F[_] : Concurrent](
+                                                     registry: CollectorRegistry[F],
+                                                     refCache: SerialRef[Resource[F, *], Map[String, Cached.Entry]]
+                                                   ) extends CollectorRegistry[F] {
 
-      override def gauge[A, B[_]](name: String, help: String, labels: A)(implicit magnet: LabelsMagnet[A, B]): Resource[F, B[Gauge[F]]] =
-        getOrCreate(
-          name = name,
-          names = magnet.names(labels),
-          ofType = "gauge",
-          create = registry.gauge(name, help, labels)(magnet),
-        )
+    override def gauge[A, B[_]](name: String, help: String, labels: A)(implicit magnet: LabelsMagnet[A, B]): Resource[F, B[Gauge[F]]] =
+      getOrCreate(
+        name = name,
+        names = magnet.names(labels),
+        ofType = "gauge",
+        create = registry.gauge(name, help, labels)(magnet),
+      )
 
-      override def gaugeInitialized[A, B[_]](name: String, help: String, labels: A)(implicit magnet: LabelsMagnetInitialized[A, B]): Resource[F, B[Gauge[F]]] =
-        getOrCreate(
-          name = name,
-          names = magnet.names(labels),
-          ofType = "gauge",
-          create = registry.gauge(name, help, labels)(magnet),
-        )
+    override def gaugeInitialized[A, B[_]](name: String, help: String, labels: A)(implicit magnet: LabelsMagnetInitialized[A, B]): Resource[F, B[Gauge[F]]] =
+      getOrCreate(
+        name = name,
+        names = magnet.names(labels),
+        ofType = "gauge",
+        create = registry.gauge(name, help, labels)(magnet),
+      )
 
-      override def counter[A, B[_]](name: String, help: String, labels: A)(implicit magnet: LabelsMagnet[A, B]): Resource[F, B[Counter[F]]] =
-        getOrCreate(
-          name = name,
-          names = magnet.names(labels),
-          ofType = "counter",
-          create = registry.counter(name, help, labels)(magnet),
-        )
+    override def counter[A, B[_]](name: String, help: String, labels: A)(implicit magnet: LabelsMagnet[A, B]): Resource[F, B[Counter[F]]] =
+      getOrCreate(
+        name = name,
+        names = magnet.names(labels),
+        ofType = "counter",
+        create = registry.counter(name, help, labels)(magnet),
+      )
 
-      override def counterInitialized[A, B[_]](name: String, help: String, labels: A)(implicit magnet: LabelsMagnetInitialized[A, B]): Resource[F, B[Counter[F]]] =
-        getOrCreate(
-          name = name,
-          names = magnet.names(labels),
-          ofType = "counter",
-          create = registry.counter(name, help, labels)(magnet),
-        )
+    override def counterInitialized[A, B[_]](name: String, help: String, labels: A)(implicit magnet: LabelsMagnetInitialized[A, B]): Resource[F, B[Counter[F]]] =
+      getOrCreate(
+        name = name,
+        names = magnet.names(labels),
+        ofType = "counter",
+        create = registry.counter(name, help, labels)(magnet),
+      )
 
-      override def summary[A, B[_]](name: String, help: String, quantiles: Quantiles, labels: A)(implicit magnet: LabelsMagnet[A, B]): Resource[F, B[Summary[F]]] =
-        getOrCreate(
-          name = name,
-          names = magnet.names(labels),
-          ofType = "summary",
-          create = registry.summary(name, help, quantiles, labels)(magnet),
-        )
+    override def summary[A, B[_]](name: String, help: String, quantiles: Quantiles, labels: A)(implicit magnet: LabelsMagnet[A, B]): Resource[F, B[Summary[F]]] =
+      getOrCreate(
+        name = name,
+        names = magnet.names(labels),
+        ofType = "summary",
+        create = registry.summary(name, help, quantiles, labels)(magnet),
+      )
 
-      override def summaryInitialized[A, B[_]](name: String, help: String, quantiles: Quantiles, labels: A)(implicit magnet: LabelsMagnetInitialized[A, B]): Resource[F, B[Summary[F]]] =
-        getOrCreate(
-          name = name,
-          names = magnet.names(labels),
-          ofType = "summary",
-          create = registry.summary(name, help, quantiles, labels)(magnet),
-        )
+    override def summaryInitialized[A, B[_]](name: String, help: String, quantiles: Quantiles, labels: A)(implicit magnet: LabelsMagnetInitialized[A, B]): Resource[F, B[Summary[F]]] =
+      getOrCreate(
+        name = name,
+        names = magnet.names(labels),
+        ofType = "summary",
+        create = registry.summary(name, help, quantiles, labels)(magnet),
+      )
 
-      override def histogram[A, B[_]](name: String, help: String, buckets: Buckets, labels: A)(implicit magnet: LabelsMagnet[A, B]): Resource[F, B[Histogram[F]]] =
-        getOrCreate(
-          name = name,
-          names = magnet.names(labels),
-          ofType = "histogram",
-          create = registry.histogram(name, help, buckets, labels)(magnet),
-        )
+    override def histogram[A, B[_]](name: String, help: String, buckets: Buckets, labels: A)(implicit magnet: LabelsMagnet[A, B]): Resource[F, B[Histogram[F]]] =
+      getOrCreate(
+        name = name,
+        names = magnet.names(labels),
+        ofType = "histogram",
+        create = registry.histogram(name, help, buckets, labels)(magnet),
+      )
 
-      override def histogramInitialized[A, B[_]](name: String, help: String, buckets: Buckets, labels: A)(implicit magnet: LabelsMagnetInitialized[A, B]): Resource[F, B[Histogram[F]]] =
-        getOrCreate(
-          name = name,
-          names = magnet.names(labels),
-          ofType = "histogram",
-          create = registry.histogram(name, help, buckets, labels)(magnet),
-        )
+    override def histogramInitialized[A, B[_]](name: String, help: String, buckets: Buckets, labels: A)(implicit magnet: LabelsMagnetInitialized[A, B]): Resource[F, B[Histogram[F]]] =
+      getOrCreate(
+        name = name,
+        names = magnet.names(labels),
+        ofType = "histogram",
+        create = registry.histogram(name, help, buckets, labels)(magnet),
+      )
 
-      private def getOrCreate[A](
-                                  name: String,
-                                  names: List[String],
-                                  ofType: String,
-                                  create: Resource[F, A],
-                                ): Resource[F, A] =
-        cache.modify { cache =>
-          cache.get(name) match {
+    private def getOrCreate[A](
+                                name: String,
+                                names: List[String],
+                                ofType: String,
+                                create: Resource[F, A],
+                              ): Resource[F, A] =
+      refCache.modify { cache =>
+        cache.get(name) match {
 
-            case Some(entry) =>
+          case Some(entry) =>
 
-              if (entry.ofType != ofType) {
+            if (entry.ofType != ofType) {
 
-                val message =
-                  s"metric `$name` of type `${entry.ofType}` with labels [${entry.names.mkString(", ")}] " +
-                    s"already registered, while new metric of type `$ofType` tried to be created"
-                new CachedRegistryException(message).raiseError[F, (Map[String, Entry], A)].toResource
+              val message =
+                s"metric `$name` of type `${entry.ofType}` with labels [${entry.names.mkString(", ")}] " +
+                  s"already registered, while new metric of type `$ofType` tried to be created"
+              new CachedRegistryException(message).raiseError[F, (Map[String, Cached.Entry], A)].toResource
 
-              } else if (entry.names != names) {
+            } else if (entry.names != names) {
 
-                val message =
-                  s"metric `$name` of type `${entry.ofType}` with labels [${entry.names.mkString(", ")}] " +
-                    s"already registered, while new metric tried to be created with labels [${names.mkString(", ")}]"
-                new CachedRegistryException(message).raiseError[F, (Map[String, Entry], A)].toResource
+              val message =
+                s"metric `$name` of type `${entry.ofType}` with labels [${entry.names.mkString(", ")}] " +
+                  s"already registered, while new metric tried to be created with labels [${names.mkString(", ")}]"
+              new CachedRegistryException(message).raiseError[F, (Map[String, Cached.Entry], A)].toResource
 
-              } else {
+            } else {
 
-                val cast = Concurrent[F]
-                  .catchNonFatal {
-                    entry.collector.asInstanceOf[A]
-                  }
-                  .recoverWith { case cause =>
-                    val message =
-                      s"metric `$name` of type `${entry.ofType}` with labels [${entry.names.mkString(", ")}] " +
-                        s"already registered and cannot be cast to type `$ofType` with labels [${names.mkString(", ")}]"
-                    new CachedRegistryException(message, cause).raiseError[F, A]
-                  }
-                for {
-                  metric <- cast.toResource
-                } yield cache -> metric
-
-              }
-
-            case None =>
+              val cast = Concurrent[F]
+                .catchNonFatal {
+                  entry.collector.asInstanceOf[A]
+                }
+                .recoverWith { case cause =>
+                  val message =
+                    s"metric `$name` of type `${entry.ofType}` with labels [${entry.names.mkString(", ")}] " +
+                      s"already registered and cannot be cast to type `$ofType` with labels [${names.mkString(", ")}]"
+                  new CachedRegistryException(message, cause).raiseError[F, A]
+                }
               for {
-                metric <- create
-              } yield cache.updated(name, Entry(metric, names, ofType)) -> metric
+                metric <- cast.toResource
+              } yield cache -> metric
 
-          }
+            }
+
+          case None =>
+            for {
+              metric <- create
+              invalidate = refCache.update {
+                cache => (cache - name).pure[F].toResource
+              }
+              _ <- Resource.onFinalize(invalidate.use_)
+            } yield cache.updated(name, Cached.Entry(metric, names, ofType)) -> metric
+
         }
-    }
+      }
   }
 
 }

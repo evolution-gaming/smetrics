@@ -25,7 +25,7 @@ object Prometheus { prometheus =>
 
   def cached[F[_] : Async](javaRegistry: P.CollectorRegistry): Resource[F, Prometheus[F]] =
     for {
-      cachedRegistry <- CollectorRegistryPrometheus(javaRegistry).cached
+      cachedRegistry <- CollectorRegistryPrometheus(javaRegistry).withCaching
     } yield new Prometheus[F] {
 
       override val registry: CollectorRegistry[F] = cachedRegistry

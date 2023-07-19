@@ -1,9 +1,11 @@
 package com.evolutiongaming.smetrics
 
 import cats.data.NonEmptyList
-import cats.effect.IO
+import cats.syntax.all._
+import cats.effect.{IO, Resource}
+import com.evolutiongaming.catshelper.SerialRef
 import com.evolutiongaming.smetrics.CollectorRegistry.CachedRegistryException
-import io.prometheus.client.{ CollectorRegistry => JavaRegistry }
+import io.prometheus.client.{CollectorRegistry => JavaRegistry}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -65,6 +67,28 @@ class CollectorRegistryCachedSpec extends AnyWordSpec with Matchers {
         case e: CachedRegistryException =>
           e.getMessage shouldBe "metric `foo` of type `gauge` with labels [baz] already registered, while new metric of type `counter` tried to be created"
       }
+    }
+
+    "create gauge and release it " in {
+
+      type R[A] = Resource[IO, A]
+
+      val prometheus = Prometheus.default[IO]
+
+      SerialRef
+        .of[R, Map[String, CollectorRegistry.Cached.Entry]](Map.empty)
+        .use { ref =>
+          val registry = new CollectorRegistry.Cached(prometheus.registry, ref)
+          for {
+            _ <- registry.counter("foo", "bar", LabelNames("baz")).use { _ =>
+              for {
+                c <- ref.get.use(_.pure[IO])
+              } yield c.contains("foo") shouldBe true
+            }
+            c <- ref.get.use(_.pure[IO])
+          } yield c.get("foo") shouldBe none
+        }
+        .unsafeRunSync()
     }
 
     "create multiple counters with same name" in {
