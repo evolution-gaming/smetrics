@@ -7,8 +7,6 @@ import cats.effect.implicits.effectResourceOps
 import cats.implicits.*
 import com.evolutiongaming.catshelper.SerialRef
 
-import scala.util.control.NoStackTrace
-
 trait CollectorRegistry[F[_]] {
 
   def gauge[A, B[_]](
@@ -367,7 +365,7 @@ object CollectorRegistry {
                   .catchNonFatal {
                     entry.collector.asInstanceOf[A]
                   }
-                  .recoverWith { cause =>
+                  .recoverWith { case cause =>
                     val message =
                       s"metric `$name` of type `${entry.ofType}` with labels [${entry.names.mkString(", ")}] " +
                         s"already registered and cannot be cast to type `$ofType` with labels [${names.mkString(", ")}]"
