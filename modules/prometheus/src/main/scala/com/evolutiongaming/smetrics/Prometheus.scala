@@ -1,8 +1,8 @@
 package com.evolutiongaming.smetrics
 
-import cats.effect.kernel.Resource
 import java.io.StringWriter
 import cats.effect.{Async, Sync}
+import cats.syntax.all._
 import io.prometheus.client.exporter.common.TextFormat
 import io.prometheus.{client => P}
 
@@ -23,7 +23,7 @@ object Prometheus { prometheus =>
       override val write004: F[String] = prometheus.write004[F](collectorRegistry)
     }
 
-  def cached[F[_] : Async](javaRegistry: P.CollectorRegistry): Resource[F, Prometheus[F]] =
+  def cached[F[_] : Async](javaRegistry: P.CollectorRegistry): F[Prometheus[F]] =
     for {
       cachedRegistry <- CollectorRegistryPrometheus(javaRegistry).withCaching
     } yield new Prometheus[F] {

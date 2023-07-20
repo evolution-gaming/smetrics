@@ -4,7 +4,8 @@ import cats.Monad
 import cats.effect.Resource
 import cats.effect.Concurrent
 import cats.effect.implicits.effectResourceOps
-import cats.implicits.*
+import cats.effect.syntax.all.*
+import cats.syntax.all.*
 import com.evolutiongaming.catshelper.SerialRef
 
 trait CollectorRegistry[F[_]] {
@@ -74,9 +75,9 @@ trait CollectorRegistry[F[_]] {
 
   def prefixed(prefix: String): CollectorRegistry[F] = new CollectorRegistry.Prefixed[F](this, prefix)
 
-  def withCaching(implicit F: Concurrent[F]): Resource[F, CollectorRegistry[F]] =
+  def withCaching(implicit F: Concurrent[F]): F[CollectorRegistry[F]] =
     for {
-      cache <- SerialRef.of[Resource[F, *], Map[String, CollectorRegistry.Cached.Entry]](Map.empty)
+      cache <- SerialRef.of[F, CollectorRegistry.Cached.State](Map.empty)
     } yield new CollectorRegistry.Cached(this, cache)
 }
 
@@ -267,11 +268,13 @@ object CollectorRegistry {
 
   private[smetrics] object Cached {
     case class Entry(collector: Any, names: List[String], ofType: String)
+
+    type State = Map[String, Cached.Entry]
   }
 
   private[smetrics] class Cached[F[_] : Concurrent](
                                                      registry: CollectorRegistry[F],
-                                                     refCache: SerialRef[Resource[F, *], Map[String, Cached.Entry]]
+                                                     refCache: SerialRef[F, Cached.State]
                                                    ) extends CollectorRegistry[F] {
 
     override def gauge[A, B[_]](name: String, help: String, labels: A)(implicit magnet: LabelsMagnet[A, B]): Resource[F, B[Gauge[F]]] =
@@ -343,8 +346,8 @@ object CollectorRegistry {
                                 names: List[String],
                                 ofType: String,
                                 create: Resource[F, A],
-                              ): Resource[F, A] =
-      refCache.modify { cache =>
+                              ): Resource[F, A] = {
+      val resource = refCache.modify { cache =>
         cache.get(name) match {
 
           case Some(entry) =>
@@ -354,44 +357,43 @@ object CollectorRegistry {
               val message =
                 s"metric `$name` of type `${entry.ofType}` with labels [${entry.names.mkString(", ")}] " +
                   s"already registered, while new metric of type `$ofType` tried to be created"
-              new CachedRegistryException(message).raiseError[F, (Map[String, Cached.Entry], A)].toResource
+              new CachedRegistryException(message).raiseError[F, (Cached.State, (A, F[Unit]))]
 
             } else if (entry.names != names) {
 
               val message =
                 s"metric `$name` of type `${entry.ofType}` with labels [${entry.names.mkString(", ")}] " +
                   s"already registered, while new metric tried to be created with labels [${names.mkString(", ")}]"
-              new CachedRegistryException(message).raiseError[F, (Map[String, Cached.Entry], A)].toResource
+              new CachedRegistryException(message).raiseError[F, (Cached.State, (A, F[Unit]))]
 
             } else {
 
-              val cast = Concurrent[F]
+              Concurrent[F]
                 .catchNonFatal {
-                  entry.collector.asInstanceOf[A]
+                  val a = entry.collector.asInstanceOf[A]
+                  cache -> (a, Concurrent[F].unit)
                 }
                 .recoverWith { case cause =>
                   val message =
                     s"metric `$name` of type `${entry.ofType}` with labels [${entry.names.mkString(", ")}] " +
                       s"already registered and cannot be cast to type `$ofType` with labels [${names.mkString(", ")}]"
-                  new CachedRegistryException(message, cause).raiseError[F, A]
+                  new CachedRegistryException(message, cause).raiseError[F, (Cached.State, (A, F[Unit]))]
                 }
-              for {
-                metric <- cast.toResource
-              } yield cache -> metric
 
             }
 
           case None =>
-            for {
-              metric <- create
-              invalidate = refCache.update {
-                cache => (cache - name).pure[F].toResource
-              }
-              _ <- Resource.onFinalize(invalidate.use_)
-            } yield cache.updated(name, Cached.Entry(metric, names, ofType)) -> metric
-
+            create.allocated.map {
+              case (a, release) =>
+                val invalidate = refCache.update { cache => (cache - name).pure[F] }
+                val finalizer = (invalidate >> release).uncancelable
+                val cache1 = cache.updated(name, Cached.Entry(a, names, ofType))
+                cache1 -> (a, finalizer)
+            }
         }
       }
+      Resource(resource)
+    }
   }
 
 }

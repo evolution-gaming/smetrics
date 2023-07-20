@@ -1,8 +1,9 @@
 package com.evolutiongaming.smetrics
 
 import cats.data.NonEmptyList
+import cats.effect.IO
+import cats.effect.implicits.effectResourceOps
 import cats.syntax.all._
-import cats.effect.{IO, Resource}
 import com.evolutiongaming.catshelper.SerialRef
 import com.evolutiongaming.smetrics.CollectorRegistry.CachedRegistryException
 import io.prometheus.client.{CollectorRegistry => JavaRegistry}
@@ -17,7 +18,7 @@ class CollectorRegistryCachedSpec extends AnyWordSpec with Matchers {
 
     "create multiple gauges with same name" in {
       val res = for {
-        pr <- Prometheus.cached[IO](JavaRegistry.defaultRegistry)
+        pr <- Prometheus.cached[IO](JavaRegistry.defaultRegistry).toResource
         g1 <- pr.registry.gauge("foo", "bar", LabelNames("baz"))
         g2 <- pr.registry.gauge("foo", "bar", LabelNames("baz"))
       } yield (pr, g1, g2)
@@ -41,7 +42,7 @@ class CollectorRegistryCachedSpec extends AnyWordSpec with Matchers {
 
     "create multiple gauges with same name but different labels" in {
       val res = for {
-        p <- Prometheus.cached[IO](JavaRegistry.defaultRegistry)
+        p <- Prometheus.cached[IO](JavaRegistry.defaultRegistry).toResource
         _ <- p.registry.gauge("foo", "bar", LabelNames("baz"))
         _ <- p.registry.gauge("foo", "bar", LabelNames("ams"))
       } yield {}
@@ -56,7 +57,7 @@ class CollectorRegistryCachedSpec extends AnyWordSpec with Matchers {
 
     "create gauge and then counter with same name" in {
       val res = for {
-        p <- Prometheus.cached[IO](JavaRegistry.defaultRegistry)
+        p <- Prometheus.cached[IO](JavaRegistry.defaultRegistry).toResource
         _ <- p.registry.gauge("foo", "bar", LabelNames("baz"))
         _ <- p.registry.counter("foo", "bar", LabelNames("ams"))
       } yield {}
@@ -71,29 +72,27 @@ class CollectorRegistryCachedSpec extends AnyWordSpec with Matchers {
 
     "create gauge and release it " in {
 
-      type R[A] = Resource[IO, A]
-
       val prometheus = Prometheus.default[IO]
 
-      SerialRef
-        .of[R, Map[String, CollectorRegistry.Cached.Entry]](Map.empty)
-        .use { ref =>
-          val registry = new CollectorRegistry.Cached(prometheus.registry, ref)
-          for {
-            _ <- registry.counter("foo", "bar", LabelNames("baz")).use { _ =>
-              for {
-                c <- ref.get.use(_.pure[IO])
-              } yield c.contains("foo") shouldBe true
-            }
-            c <- ref.get.use(_.pure[IO])
-          } yield c.get("foo") shouldBe none
-        }
-        .unsafeRunSync()
+      val io = for {
+        ref <- SerialRef
+          .of[IO, Map[String, CollectorRegistry.Cached.Entry]](Map.empty)
+        _ <- new CollectorRegistry.Cached(prometheus.registry, ref)
+          .counter("foo", "bar", LabelNames("baz"))
+          .use { _ =>
+            for {
+              c <- ref.get
+            } yield c.contains("foo") shouldBe true
+          }
+        c <- ref.get
+      } yield c.get("foo") shouldBe none
+
+      io.unsafeRunSync()
     }
 
     "create multiple counters with same name" in {
       val res = for {
-        pr <- Prometheus.cached[IO](JavaRegistry.defaultRegistry)
+        pr <- Prometheus.cached[IO](JavaRegistry.defaultRegistry).toResource
         c1 <- pr.registry.counter("foo", "bar", LabelNames("baz"))
         c2 <- pr.registry.counter("foo", "bar", LabelNames("baz"))
       } yield (pr, c1, c2)
@@ -117,7 +116,7 @@ class CollectorRegistryCachedSpec extends AnyWordSpec with Matchers {
 
     "create multiple summaries with same name" in {
       val res = for {
-        pr <- Prometheus.cached[IO](JavaRegistry.defaultRegistry)
+        pr <- Prometheus.cached[IO](JavaRegistry.defaultRegistry).toResource
         s1 <- pr.registry.summary(
           "foo",
           "bar",
@@ -153,7 +152,7 @@ class CollectorRegistryCachedSpec extends AnyWordSpec with Matchers {
 
     "create multiple histograms with same name" in {
       val res = for {
-        pr <- Prometheus.cached[IO](JavaRegistry.defaultRegistry)
+        pr <- Prometheus.cached[IO](JavaRegistry.defaultRegistry).toResource
         h1 <- pr.registry.histogram(
           "foo",
           "bar",
