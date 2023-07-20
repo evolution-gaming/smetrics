@@ -3,7 +3,6 @@ package com.evolutiongaming.smetrics
 import cats.Monad
 import cats.effect.Resource
 import cats.effect.Concurrent
-import cats.effect.implicits.effectResourceOps
 import cats.effect.syntax.all.*
 import cats.syntax.all.*
 import com.evolutiongaming.catshelper.SerialRef
@@ -347,7 +346,7 @@ object CollectorRegistry {
                                 ofType: String,
                                 create: Resource[F, A],
                               ): Resource[F, A] = {
-      val resource = refCache.modify { cache =>
+      val resource = refCache.modify[(A, F[Unit])] { cache =>
         cache.get(name) match {
 
           case Some(entry) =>
@@ -371,7 +370,7 @@ object CollectorRegistry {
               Concurrent[F]
                 .catchNonFatal {
                   val a = entry.collector.asInstanceOf[A]
-                  cache -> (a, Concurrent[F].unit)
+                  (cache, (a, Concurrent[F].unit))
                 }
                 .recoverWith { case cause =>
                   val message =
@@ -388,7 +387,7 @@ object CollectorRegistry {
                 val invalidate = refCache.update { cache => (cache - name).pure[F] }
                 val finalizer = (invalidate >> release).uncancelable
                 val cache1 = cache.updated(name, Cached.Entry(a, names, ofType))
-                cache1 -> (a, finalizer)
+                (cache1, (a, finalizer))
             }
         }
       }
