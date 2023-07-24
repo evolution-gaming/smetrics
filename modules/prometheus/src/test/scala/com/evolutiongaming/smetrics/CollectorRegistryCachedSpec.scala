@@ -1,11 +1,10 @@
 package com.evolutiongaming.smetrics
 
 import cats.data.NonEmptyList
-import cats.effect.IO
+import cats.effect.{Deferred, IO}
 import cats.effect.implicits.effectResourceOps
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.SerialRef
-import com.evolutiongaming.smetrics.CollectorRegistry.CachedRegistryException
 import io.prometheus.client.{CollectorRegistry => JavaRegistry}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -50,7 +49,7 @@ class CollectorRegistryCachedSpec extends AnyWordSpec with Matchers {
         res.use_.unsafeRunSync()
         fail("the test must throw CachedRegistryException")
       } catch {
-        case e: CachedRegistryException =>
+        case e: Exception =>
           e.getMessage shouldBe "metric `foo` of type `gauge` with labels [baz] already registered, while new metric tried to be created with labels [ams]"
       }
     }
@@ -65,18 +64,18 @@ class CollectorRegistryCachedSpec extends AnyWordSpec with Matchers {
         res.use_.unsafeRunSync()
         fail("the test must throw CachedRegistryException")
       } catch {
-        case e: CachedRegistryException =>
+        case e: Exception =>
           e.getMessage shouldBe "metric `foo` of type `gauge` with labels [baz] already registered, while new metric of type `counter` tried to be created"
       }
     }
 
-    "create gauge and release it " in {
+    "create counter and release it" in {
 
       val prometheus = Prometheus.default[IO]
 
       val io = for {
         ref <- SerialRef
-          .of[IO, Map[String, CollectorRegistry.Cached.Entry]](Map.empty)
+          .of[IO, Map[String, CollectorRegistry.Cached.Entry[IO]]](Map.empty)
         _ <- new CollectorRegistry.Cached(prometheus.registry, ref)
           .counter("foo", "bar", LabelNames("baz"))
           .use { _ =>
@@ -86,6 +85,46 @@ class CollectorRegistryCachedSpec extends AnyWordSpec with Matchers {
           }
         c <- ref.get
       } yield c.get("foo") shouldBe none
+
+      io.unsafeRunSync()
+    }
+
+    "create multiple counters and release first one, then use others" in {
+
+      val prometheus = Prometheus.default[IO]
+
+      val io = for {
+        ref <- SerialRef
+          .of[IO, Map[String, CollectorRegistry.Cached.Entry[IO]]](Map.empty)
+        rg = new CollectorRegistry.Cached(prometheus.registry, ref)
+        cr = rg.counter("foo", "bar", LabelNames("baz"))
+
+        d1 <- Deferred[IO, Unit]
+        d2 <- Deferred[IO, Unit]
+
+        t1 = for {
+          c <- cr
+          _ <- d1.complete({}).toResource
+          _ <- d2.get.toResource
+        } yield c
+        f1 <- t1.use_.start
+
+        t2 = d1.get.toResource >> cr
+        r2 <- t2.allocated
+        _ <- r2._1.labels("aaa").inc()
+        _ <- d2.complete({})
+        // resource t2 NOT finalized!
+
+        o1 <- f1.join
+        _ <- o1.embed(IO.unit)
+
+        c0 <- ref.get
+        _ <- r2._2
+        c1 <- ref.get
+      } yield {
+        c0.contains("foo") shouldBe true
+        c1.contains("foo") shouldBe false
+      }
 
       io.unsafeRunSync()
     }
