@@ -1,10 +1,11 @@
 package com.evolutiongaming.smetrics
 
-import java.io.StringWriter
-import cats.effect.{Async, Sync}
+import cats.effect.{Concurrent, Sync}
 import cats.syntax.all._
 import io.prometheus.client.exporter.common.TextFormat
 import io.prometheus.{client => P}
+
+import java.io.StringWriter
 
 trait Prometheus[F[_]] {
 
@@ -20,25 +21,26 @@ object Prometheus { prometheus =>
 
       override val registry: CollectorRegistry[F] = CollectorRegistryPrometheus(collectorRegistry)
 
-      override val write004: F[String] = prometheus.write004[F](collectorRegistry)
-    }
-
-  def cached[F[_] : Async](javaRegistry: P.CollectorRegistry): F[Prometheus[F]] =
-    for {
-      cachedRegistry <- CollectorRegistryPrometheus(javaRegistry).withCaching
-    } yield new Prometheus[F] {
-
-      override val registry: CollectorRegistry[F] = cachedRegistry
-
-      override val write004: F[String] = prometheus.write004[F](javaRegistry)
+      override val write004: F[String] = Sync[F].delay {
+        val writer = new StringWriter
+        TextFormat.write004(writer, collectorRegistry.metricFamilySamples)
+        writer.toString
+      }
     }
 
   def default[F[_] : Sync]: Prometheus[F] = apply(P.CollectorRegistry.defaultRegistry)
 
-  private def write004[F[_] : Sync](registry: P.CollectorRegistry): F[String] = Sync[F].delay {
-    val writer = new StringWriter
-    TextFormat.write004(writer, registry.metricFamilySamples)
-    writer.toString
+  implicit class Ops[F[_]](val prometheus: Prometheus[F]) extends AnyVal {
+
+    def withCaching(implicit F: Concurrent[F]): F[Prometheus[F]] =
+      prometheus.registry.withCaching.map { cachedRegistry =>
+        new Prometheus[F] {
+          override def registry: CollectorRegistry[F] = cachedRegistry
+
+          override def write004: F[String] = prometheus.write004
+        }
+      }
+
   }
 
 }
