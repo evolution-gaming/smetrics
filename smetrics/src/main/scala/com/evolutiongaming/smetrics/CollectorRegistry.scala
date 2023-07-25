@@ -1,7 +1,7 @@
 package com.evolutiongaming.smetrics
 
 import cats.Monad
-import cats.effect.{Concurrent, Ref, Resource}
+import cats.effect.{Concurrent, Resource}
 import cats.effect.syntax.all.*
 import cats.syntax.all.*
 import com.evolutiongaming.catshelper.{ResourceCounter, SerialRef}
