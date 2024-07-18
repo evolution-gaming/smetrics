@@ -13,10 +13,10 @@ def is3(scalaVersion: String): Boolean = scalaVersion.startsWith("3")
 
 lazy val commonSettings = Seq(
   organization := "com.evolutiongaming",
-  homepage := Some(new URL("http://github.com/evolution-gaming/smetrics")),
+  homepage := Some(url("https://github.com/evolution-gaming/smetrics")),
   startYear := Some(2019),
   organizationName := "Evolution",
-  organizationHomepage := Some(url("http://evolution.com")),
+  organizationHomepage := Some(url("https://evolution.com")),
   scalaVersion := crossScalaVersions.value.head,
   crossScalaVersions := Seq("2.13.8", "3.3.0", "2.12.16"),
   publishTo := Some(Resolver.evolutionReleases),
@@ -24,10 +24,15 @@ lazy val commonSettings = Seq(
   releaseCrossBuild := true,
   Compile / doc / scalacOptions += "-no-link-warnings")
 
+val alias: Seq[sbt.Def.Setting[?]] =
+  //  addCommandAlias("check", "all versionPolicyCheck Compile/doc") ++
+  addCommandAlias("check", "show version") ++
+    addCommandAlias("build", "+all compile test")
 
 lazy val root = (project
   in file(".")
   settings commonSettings
+  settings (alias)
   settings (
     publish / skip := true,
     name := "smetrics-parent"
