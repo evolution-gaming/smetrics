@@ -2,7 +2,6 @@ package com.evolutiongaming.smetrics
 
 import cats.data.NonEmptyList
 import cats.effect.{Deferred, IO}
-import cats.effect.implicits.effectResourceOps
 import cats.syntax.all._
 import com.evolutiongaming.catshelper.SerialRef
 import org.scalatest.matchers.should.Matchers
