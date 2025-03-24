@@ -18,10 +18,9 @@ lazy val commonSettings = Seq(
   organizationName := "Evolution",
   organizationHomepage := Some(url("https://evolution.com")),
   scalaVersion := crossScalaVersions.value.head,
-  crossScalaVersions := Seq("2.13.8", "3.3.0", "2.12.16"),
+  crossScalaVersions := Seq("2.13.16", "3.3.5"),
   publishTo := Some(Resolver.evolutionReleases),
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
-  releaseCrossBuild := true,
   Compile / doc / scalacOptions += "-no-link-warnings")
 
 val alias: Seq[sbt.Def.Setting[?]] =
@@ -53,7 +52,7 @@ lazy val smetrics = (project
     libraryDependencies ++= crossSettings(
       scalaVersion.value,
       if3 = Nil,
-      if2 = List(compilerPlugin("org.typelevel" % "kind-projector" % "0.13.2" cross CrossVersion.full))
+      if2 = List(compilerPlugin("org.typelevel" % "kind-projector" % "0.13.3" cross CrossVersion.full))
     ),
     scalacOptions ++= crossSettings(
       scalaVersion.value,
