@@ -17,6 +17,7 @@ lazy val commonSettings = Seq(
   startYear := Some(2019),
   organizationName := "Evolution",
   organizationHomepage := Some(url("https://evolution.com")),
+  versionPolicyIntention := Compatibility.BinaryCompatible,
   scalaVersion := crossScalaVersions.value.head,
   crossScalaVersions := Seq("2.13.16", "3.3.5"),
   publishTo := Some(Resolver.evolutionReleases),
@@ -24,8 +25,7 @@ lazy val commonSettings = Seq(
   Compile / doc / scalacOptions += "-no-link-warnings")
 
 val alias: Seq[sbt.Def.Setting[?]] =
-  //  addCommandAlias("check", "all versionPolicyCheck Compile/doc") ++
-  addCommandAlias("check", "show version") ++
+  addCommandAlias("check", "all versionPolicyCheck Compile/doc") ++
     addCommandAlias("build", "+all compile test")
 
 lazy val root = (project
