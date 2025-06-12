@@ -86,7 +86,6 @@ lazy val prometheus_v1 = (project
       Dependencies.PrometheusV1.formats,
       scalatest % Test
     ),
-    versionPolicyCheck / skip := true
   )
 )
 
