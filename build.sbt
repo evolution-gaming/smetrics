@@ -36,7 +36,7 @@ lazy val root = (project
     publish / skip := true,
     name := "smetrics-parent"
   )
-  aggregate(smetrics, prometheus, http4s, doobie))
+  aggregate(smetrics, prometheus, http4s, doobie, prometheus_v1))
 
 lazy val smetrics = (project
   in file("smetrics")
@@ -70,6 +70,20 @@ lazy val prometheus = (project
     libraryDependencies ++= Seq(
       Dependencies.prometheus,
       Dependencies.prometheusCommon,
+      scalatest % Test
+    )
+  )
+)
+
+lazy val prometheus_v1 = (project
+  in file("modules/prometheus_v1")
+  settings commonSettings
+  dependsOn smetrics % "compile->compile;test->test"
+  settings (
+    name := "smetrics-prometheus-v1",
+    libraryDependencies ++= Seq(
+      Dependencies.PrometheusV1.core,
+      Dependencies.PrometheusV1.formats,
       scalatest % Test
     )
   )
