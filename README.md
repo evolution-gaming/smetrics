@@ -103,4 +103,10 @@ addSbtPlugin("com.evolution" % "sbt-artifactory-plugin" % "0.0.2")
 libraryDependencies += "com.evolutiongaming" %% "smetrics" % "0.3.1"
 
 libraryDependencies += "com.evolutiongaming" %% "smetrics-prometheus" % "0.3.1"
-``` 
+```
+
+For prometheus version 1.x.x+ use `prometheus_v1` module:
+
+```scala
+libraryDependencies += "com.evolutiongaming" %% "smetrics-prometheus-v1" % "0.3.1"
+```
