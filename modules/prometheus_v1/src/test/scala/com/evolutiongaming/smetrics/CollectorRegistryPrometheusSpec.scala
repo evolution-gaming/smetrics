@@ -209,7 +209,7 @@ object CollectorRegistryPrometheusSpec {
       Sync[F].delay {
         val snapshot = self.scrape((n: String) => n == metric)
         snapshot.asScala.toList
-          .collectFirstSome {
+          .collectFirstSome[DataPointSnapshot] {
             case snapshot =>
               snapshot
                 .getDataPoints()
