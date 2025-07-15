@@ -8,7 +8,7 @@ object Dependencies {
   val scalatest                 = "org.scalatest"       %% "scalatest"           % "3.2.19"
   val `cats-helper`             = "com.evolutiongaming" %% "cats-helper"         % "3.11.0"
   val http4s                    = "org.http4s"          %% "http4s-core"         % "0.23.30"
-  val doobie                    = "org.tpolecat"        %% "doobie-core"         % "1.0.0-RC8"
+  val doobie                    = "org.tpolecat"        %% "doobie-core"         % "1.0.0-RC10"
 
   object Cats {
     val core   = "org.typelevel" %% "cats-core"   % "2.13.0"
