@@ -99,7 +99,6 @@ lazy val logback = (project
       Dependencies.PrometheusV1.core,
       Dependencies.Logback.classic
     ),
-    versionPolicyCheck / skip := true
   )
 )
 
