@@ -20,4 +20,9 @@ object Dependencies {
     val core            = "io.prometheus" % "prometheus-metrics-core"                   % version
     val formats         = "io.prometheus" % "prometheus-metrics-exposition-textformats" % version
   }
+
+  object Logback {
+    private val version = "1.5.18"
+    val classic = "ch.qos.logback" % "logback-classic" % version
+  }
 }
