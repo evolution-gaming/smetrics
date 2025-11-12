@@ -2,27 +2,20 @@ package sttp.client3.prometheus
 
 import cats._
 import cats.syntax.all._
-// import cats.data.NonEmptyList
-// import cats.effect.Resource
-// import com.evolutiongaming.smetrics._
 
-// import java.util.concurrent.ConcurrentHashMap
 import cats.effect.kernel.Clock
 import com.evolutiongaming.catshelper.MeasureDuration
 import sttp.client3._
 
 // import io.prometheus.client.{CollectorRegistry, Counter, Gauge, Histogram, Summary}
 import sttp.client3.listener._
-// import sttp.client3.prometheus.PrometheusBackend.RequestCollectors
+// import sttp.client3.Request
 // import sttp.model.StatusCode
 import com.evolutiongaming.smetrics._
-// import sttp.client3.Request
-//
-// import scala.collection.mutable
 
 object PrometheusBackend {
 
-  def apply[F[_]: Clock: FlatMap, P](
+  def apply[F[_]: Clock: Monad, P](
       delegate: SttpBackend[F, P],
       latencyMapper: Request[_, _] => Option[Histogram[F]],
       inProgressMapper: Request[_, _] => Option[Gauge[F]],
@@ -51,7 +44,7 @@ object PrometheusBackend {
 
   private[PrometheusBackend] final case class RequestCollectors()
 
-  class PrometheusListener[F[_]: Clock: FlatMap](
+  class PrometheusListener[F[_]: Clock: Monad](
       latencyMapper: Request[_, _] => Option[Histogram[F]],
       inProgressMapper: Request[_, _] => Option[Gauge[F]],
       successMapper: (Request[_, _], Response[_]) => Option[Counter[F]],
@@ -105,10 +98,10 @@ object PrometheusBackend {
 
       // RequestCollectors(requestTimer, gauge)
 
-      // for {
-      //   record <- latency.getOrElse(Applicative[F].unit.pure[F])
-      //   _      <- inProgress.getOrElse(Applicative[F].unit)
-      // } yield RequestCollectors()
+      for {
+        record <- latency.getOrElse(Applicative[F].unit.pure[F])
+        _      <- inProgress.getOrElse(Applicative[F].unit)
+      } yield RequestCollectors()
       ???
     }
     //
