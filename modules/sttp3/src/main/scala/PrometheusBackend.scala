@@ -23,13 +23,13 @@ import scala.collection.mutable
 
 object SmetricsBackend {
 
-  val DefaultHistogramName = "sttp_request_latency"
+  val DefaultHistogramName               = "sttp_request_latency"
   val DefaultRequestsInProgressGaugeName = "sttp_requests_in_progress"
-  val DefaultSuccessCounterName = "sttp_requests_success_count"
-  val DefaultErrorCounterName = "sttp_requests_error_count"
-  val DefaultFailureCounterName = "sttp_requests_failure_count"
-  val DefaultRequestSizeName = "sttp_request_size_bytes"
-  val DefaultResponseSizeName = "sttp_response_size_bytes"
+  val DefaultSuccessCounterName          = "sttp_requests_success_count"
+  val DefaultErrorCounterName            = "sttp_requests_error_count"
+  val DefaultFailureCounterName          = "sttp_requests_failure_count"
+  val DefaultRequestSizeName             = "sttp_request_size_bytes"
+  val DefaultResponseSizeName            = "sttp_response_size_bytes"
 
   val DefaultMethodLabel = "method"
   val DefaultStatusLabel = "status"
@@ -77,12 +77,12 @@ object SmetricsBackend {
 
   object Metrics {
     def empty[F[_]: Applicative]: Metrics[F] = new Metrics[F] {
-      def latency(req: Request[_, _]): F[F[Unit]] = Applicative[F].pure(Applicative[F].unit)
-      def inProgress(req: Request[_, _]): F[F[Unit]] = Applicative[F].pure(Applicative[F].unit)
-      def success(req: Request[_, _], resp: Response[_]): F[Unit] = Applicative[F].unit
-      def error(req: Request[_, _], resp: Response[_]): F[Unit] = Applicative[F].unit
-      def failure(req: Request[_, _], e: Throwable): F[Unit] = Applicative[F].unit
-      def requestSize(req: Request[_, _], size: Long): F[Unit] = Applicative[F].unit
+      def latency(req: Request[_, _]): F[F[Unit]]                      = Applicative[F].pure(Applicative[F].unit)
+      def inProgress(req: Request[_, _]): F[F[Unit]]                   = Applicative[F].pure(Applicative[F].unit)
+      def success(req: Request[_, _], resp: Response[_]): F[Unit]      = Applicative[F].unit
+      def error(req: Request[_, _], resp: Response[_]): F[Unit]        = Applicative[F].unit
+      def failure(req: Request[_, _], e: Throwable): F[Unit]           = Applicative[F].unit
+      def requestSize(req: Request[_, _], size: Long): F[Unit]         = Applicative[F].unit
       def responseSize(req: Request[_, _], resp: Response[_]): F[Unit] = Applicative[F].unit
     }
 
@@ -91,18 +91,18 @@ object SmetricsBackend {
     ): Metrics[F] = {
       for {
         latency <- collectorRegistry.histogram(
-          DefaultHistogramName,
-          "Request latency in seconds.",
-          Buckets(NonEmptyList.fromListUnsafe(DefaultBuckets)),
-          LabelNames(DefaultMethodLabel, DefaultStatusLabel)
-        )
+                     DefaultHistogramName,
+                     "Request latency in seconds.",
+                     Buckets(NonEmptyList.fromListUnsafe(DefaultBuckets)),
+                     LabelNames(DefaultMethodLabel, DefaultStatusLabel)
+                   )
       } yield new Metrics[F] {
-        def latency(req: Request[_, _]): F[F[Unit]] = latency(req)
-        def inProgress(req: Request[_, _]): F[F[Unit]] = inProgress(req)
-        def success(req: Request[_, _], resp: Response[_]): F[Unit] = success(req, resp)
-        def error(req: Request[_, _], resp: Response[_]): F[Unit] = error(req, resp)
-        def failure(req: Request[_, _], e: Throwable): F[Unit] = failure(req, e)
-        def requestSize(req: Request[_, _], size: Long): F[Unit] = requestSize(req, size)
+        def latency(req: Request[_, _]): F[F[Unit]]                      = latency(req)
+        def inProgress(req: Request[_, _]): F[F[Unit]]                   = inProgress(req)
+        def success(req: Request[_, _], resp: Response[_]): F[Unit]      = success(req, resp)
+        def error(req: Request[_, _], resp: Response[_]): F[Unit]        = error(req, resp)
+        def failure(req: Request[_, _], e: Throwable): F[Unit]           = failure(req, e)
+        def requestSize(req: Request[_, _], size: Long): F[Unit]         = requestSize(req, size)
         def responseSize(req: Request[_, _], resp: Response[_]): F[Unit] = responseSize(req, resp)
       }
     }
