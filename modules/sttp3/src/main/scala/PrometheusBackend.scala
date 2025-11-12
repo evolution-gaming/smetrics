@@ -1,14 +1,46 @@
 package sttp.client3.prometheus
 
+import com.evolutiongaming.smetrics.{LabelsMagnet, WithLabelValues}
+
 import java.util.concurrent.ConcurrentHashMap
 import sttp.client3.{FollowRedirectsBackend, HttpError, Identity, Request, Response, SttpBackend}
 // import io.prometheus.client.{CollectorRegistry, Counter, Gauge, Histogram, Summary}
 import sttp.client3.listener.{ListenerBackend, RequestListener}
 import sttp.client3.prometheus.PrometheusBackend.RequestCollectors
 import sttp.model.StatusCode
-import com.evolutiongaming.smetrics.{CollectorRegistry, Counter, Gauge, Histogram, Summary}
-
+import com.evolutiongaming.smetrics.{CollectorRegistry, Counter, Gauge, Histogram, LabelNames, Summary}
+import sttp.client3.Request
+//
 import scala.collection.mutable
+
+// - create metrics for sttp requests and responses
+// - use ListenerBackend to hook into request lifecycle
+// - how to pass configuration for metrics names and labels?
+// - how to fill labels based on request/response data given pre-configured label names?
+
+object SmetricsBackend {
+
+  trait Metrics[F[_]] {
+    def latency(req: Request[_, _]): F[F[Unit]]
+    def inProgress(req: Request[_, _]): F[F[Unit]]
+    def success(req: Request[_, _], resp: Response[_]): F[Unit]
+    def error(req: Request[_, _], resp: Response[_]): F[Unit]
+    def failure(req: Request[_, _], e: Throwable): F[Unit]
+    def requestSize(req: Request[_, _], size: Long): F[Unit]
+    def responseSize(req: Request[_, _], resp: Response[_]/** size: Long? */): F[Unit]
+  }
+
+//  trait Metric0 {
+//    type L <: LabelNames
+//    type B[X]
+//
+//    def name: String
+//    def labelNames: L
+//
+//    def magnet: LabelsMagnet[L, B]
+//  }
+
+}
 
 object PrometheusBackend {
   val DefaultHistogramName = "sttp_request_latency"
@@ -247,7 +279,7 @@ class PrometheusListener[F[_]](
       }
     )
 
-  private def createNewHistogram(data: HistogramCollectorConfig): Histogram =
+  private def createNewHistogram(data: HistogramCollectorConfig): Histogram = {
     Histogram
       .build()
       .buckets(data.buckets: _*)
@@ -255,6 +287,9 @@ class PrometheusListener[F[_]](
       .labelNames(data.labelNames: _*)
       .help(data.collectorName)
       .register(collectorRegistry)
+
+    collectorRegistry.histogram(data.collectorName, data.collectorName, data.labelNames: _*)
+  }
 
   private def createNewGauge(data: BaseCollectorConfig): Gauge =
     Gauge
