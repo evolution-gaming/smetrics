@@ -54,7 +54,6 @@ object PrometheusBackend {
       responseSizeMapper: (Request[_, _], Response[_]) => Option[Summary[F]],
   ) extends RequestListener[F, RequestCollectors[F]] {
 
-    // def beforeRequest(request: Request[_, _]): F[RequestCollectors]                                       = ???
     def requestException(request: Request[_, _], tag: RequestCollectors[F], e: Exception): F[Unit]           = ???
     def requestSuccessful(request: Request[_, _], response: Response[_], tag: RequestCollectors[F]): F[Unit] = ???
 
@@ -72,12 +71,15 @@ object PrometheusBackend {
         size        <- request.contentLength.map(_.toDouble)
       } yield requestSize.observe(size)
 
+      val unit = Applicative[F].unit
+
       for {
-        recordLatency <- latency.getOrElse(Applicative[F].unit.pure[F])
-        _             <- inProgress.map(_.inc()).getOrElse(Applicative[F].unit)
+        recordLatency <- latency.getOrElse(unit.pure[F])
+        _             <- requestSize.getOrElse(unit)
+        _             <- inProgress.map(_.inc()).getOrElse(unit)
       } yield RequestCollectors(
         recordLatency = recordLatency,
-        decInProgress = inProgress.map(_.dec()).getOrElse(Applicative[F].unit)
+        decInProgress = inProgress.map(_.dec()).getOrElse(unit)
       )
     }
     //
