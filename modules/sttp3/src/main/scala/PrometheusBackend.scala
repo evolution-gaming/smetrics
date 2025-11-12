@@ -81,11 +81,34 @@ object PrometheusBackend {
       //   gaugeData <- requestToInProgressGaugeNameMapper(request)
       // } yield getOrCreateMetric(gaugesCache, gaugeData, createNewGauge).labels(gaugeData.labelValues: _*)
 
+      val inProgress = for {
+        gauge <- inProgressMapper(request)
+      } yield gauge.inc()
+
       // observeRequestContentLengthSummaryIfMapped(request, requestToSizeSummaryMapper)
+      //
+      //  private def observeRequestContentLengthSummaryIfMapped(
+      //      request: Request[_, _],
+      //      mapper: Request[_, _] => Option[BaseCollectorConfig]
+      //  ): Unit =
+      //    mapper(request).foreach { data =>
+      //      (request.contentLength: Option[Long]).map(_.toDouble).foreach { size =>
+      //        getOrCreateMetric(summariesCache, data, createNewSummary).labels(data.labelValues: _*).observe(size)
+      //      }
+      //    }
+      val requestSize = for {
+        requestSize <- requestSizeMapper(request)
+        size        <- request.contentLength.map(_.toDouble)
+      } yield requestSize.observe(size)
 
       // gauge.foreach(_.inc())
 
       // RequestCollectors(requestTimer, gauge)
+
+      // for {
+      //   _ <- latency.getOrElse(().pure[F])
+      //   _ <- inProgress.getOrElse(().pure[F])
+      // } yield RequestCollectors()
       ???
     }
     //
@@ -135,16 +158,6 @@ object PrometheusBackend {
     //  ): Unit =
     //    mapper((request, response)).foreach { data =>
     //      response.contentLength.map(_.toDouble).foreach { size =>
-    //        getOrCreateMetric(summariesCache, data, createNewSummary).labels(data.labelValues: _*).observe(size)
-    //      }
-    //    }
-    //
-    //  private def observeRequestContentLengthSummaryIfMapped(
-    //      request: Request[_, _],
-    //      mapper: Request[_, _] => Option[BaseCollectorConfig]
-    //  ): Unit =
-    //    mapper(request).foreach { data =>
-    //      (request.contentLength: Option[Long]).map(_.toDouble).foreach { size =>
     //        getOrCreateMetric(summariesCache, data, createNewSummary).labels(data.labelValues: _*).observe(size)
     //      }
     //    }
