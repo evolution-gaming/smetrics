@@ -54,7 +54,7 @@ object PrometheusBackend {
       responseSizeMapper: (Request[_, _], Response[_]) => Option[Summary[F]],
   ) extends RequestListener[F, RequestCollectors[F]] {
 
-    def requestException(request: Request[_, _], tag: RequestCollectors[F], e: Exception): F[Unit]           = ???
+    // def requestException(request: Request[_, _], tag: RequestCollectors[F], e: Exception): F[Unit]           = ???
     def requestSuccessful(request: Request[_, _], response: Response[_], tag: RequestCollectors[F]): F[Unit] = ???
 
     override def beforeRequest(request: Request[_, _]): F[RequestCollectors[F]] = {
@@ -82,22 +82,24 @@ object PrometheusBackend {
         decInProgress = inProgress.map(_.dec()).getOrElse(unit)
       )
     }
-    //
-    //  override def requestException(
-    //      request: Request[_, _],
-    //      requestCollectors: RequestCollectors,
-    //      e: Exception
-    //  ): F[Unit] = {
-    //    HttpError.find(e) match {
-    //      case Some(HttpError(body, statusCode)) =>
-    //        requestSuccessful(request, Response(body, statusCode).copy(request = request.onlyMetadata), requestCollectors)
-    //      case _                                 =>
-    //        requestCollectors.maybeTimer.foreach(_.observeDuration())
-    //        requestCollectors.maybeGauge.foreach(_.dec())
-    //        incCounterIfMapped((request, e), requestToFailureCounterMapper)
-    //    }
-    //  }
-    //
+
+    override def requestException(
+        request: Request[_, _],
+        requestCollectors: RequestCollectors[F],
+        e: Exception
+    ): F[Unit] = {
+      HttpError.find(e) match {
+        case Some(HttpError(body, statusCode)) =>
+          requestSuccessful(request, Response(body, statusCode).copy(request = request.onlyMetadata), requestCollectors)
+        case _                                 =>
+          for {
+            _ <- requestCollectors.recordLatency
+            _ <- requestCollectors.decInProgress
+            _ <- failureMapper(request, e).map(_.inc()).sequence
+          } yield ()
+      }
+    }
+
     //  override def requestSuccessful(
     //      request: Request[_, _],
     //      response: Response[_],
