@@ -27,7 +27,7 @@ object PrometheusBackend {
   ): SttpBackend[F, P] = {
     // redirects should be handled before prometheus
     new FollowRedirectsBackend[F, P](
-      new ListenerBackend[F, P, RequestCollectors](
+      new ListenerBackend[F, P, RequestCollectors[F]](
         delegate,
         new PrometheusListener[F](
           latencyMapper: Request[_, _] => Option[Histogram[F]],
@@ -42,9 +42,9 @@ object PrometheusBackend {
     )
   }
 
-  private[PrometheusBackend] final case class RequestCollectors()
+  private[this] final case class RequestCollectors[F[_]](recordLatency: F[Unit])
 
-  class PrometheusListener[F[_]: Clock: Monad](
+  private[this] class PrometheusListener[F[_]: Clock: Monad](
       latencyMapper: Request[_, _] => Option[Histogram[F]],
       inProgressMapper: Request[_, _] => Option[Gauge[F]],
       successMapper: (Request[_, _], Response[_]) => Option[Counter[F]],
@@ -52,13 +52,13 @@ object PrometheusBackend {
       failureMapper: (Request[_, _], Throwable) => Option[Counter[F]],
       requestSizeMapper: Request[_, _] => Option[Summary[F]],
       responseSizeMapper: (Request[_, _], Response[_]) => Option[Summary[F]],
-  ) extends RequestListener[F, RequestCollectors] {
+  ) extends RequestListener[F, RequestCollectors[F]] {
 
     // def beforeRequest(request: Request[_, _]): F[RequestCollectors]                                       = ???
-    def requestException(request: Request[_, _], tag: RequestCollectors, e: Exception): F[Unit]           = ???
-    def requestSuccessful(request: Request[_, _], response: Response[_], tag: RequestCollectors): F[Unit] = ???
+    def requestException(request: Request[_, _], tag: RequestCollectors[F], e: Exception): F[Unit]           = ???
+    def requestSuccessful(request: Request[_, _], response: Response[_], tag: RequestCollectors[F]): F[Unit] = ???
 
-    override def beforeRequest(request: Request[_, _]): F[RequestCollectors] = {
+    override def beforeRequest(request: Request[_, _]): F[RequestCollectors[F]] = {
       // val requestTimer: Option[Histogram.Timer] = for {
       //   histogramData       <- requestToHistogramNameMapper(request)
       //   histogram: Histogram = getOrCreateMetric(histogramsCache, histogramData, createNewHistogram)
@@ -99,10 +99,9 @@ object PrometheusBackend {
       // RequestCollectors(requestTimer, gauge)
 
       for {
-        record <- latency.getOrElse(Applicative[F].unit.pure[F])
-        _      <- inProgress.getOrElse(Applicative[F].unit)
-      } yield RequestCollectors()
-      ???
+        recordLatency <- latency.getOrElse(Applicative[F].unit.pure[F])
+        _             <- inProgress.getOrElse(Applicative[F].unit)
+      } yield RequestCollectors(recordLatency = recordLatency)
     }
     //
     //  override def requestException(
