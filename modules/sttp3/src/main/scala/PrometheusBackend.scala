@@ -55,7 +55,7 @@ object PrometheusBackend {
   ) extends RequestListener[F, RequestCollectors[F]] {
 
     // def requestException(request: Request[_, _], tag: RequestCollectors[F], e: Exception): F[Unit]           = ???
-    def requestSuccessful(request: Request[_, _], response: Response[_], tag: RequestCollectors[F]): F[Unit] = ???
+    // def requestSuccessful(request: Request[_, _], response: Response[_], tag: RequestCollectors[F]): F[Unit] = ???
 
     override def beforeRequest(request: Request[_, _]): F[RequestCollectors[F]] = {
       val latency = for {
@@ -100,21 +100,30 @@ object PrometheusBackend {
       }
     }
 
-    //  override def requestSuccessful(
-    //      request: Request[_, _],
-    //      response: Response[_],
-    //      requestCollectors: RequestCollectors
-    //  ): F[Unit] = {
-    //    requestCollectors.maybeTimer.foreach(_.observeDuration())
-    //    requestCollectors.maybeGauge.foreach(_.dec())
-    //    observeResponseContentLengthSummaryIfMapped(request, response, responseToSizeSummaryMapper)
-    //
-    //    if (response.isSuccess) {
-    //      incCounterIfMapped((request, response), requestToSuccessCounterMapper)
-    //    } else {
-    //      incCounterIfMapped((request, response), requestToErrorCounterMapper)
-    //    }
-    //  }
+    override def requestSuccessful(
+        request: Request[_, _],
+        response: Response[_],
+        requestCollectors: RequestCollectors[F]
+    ): F[Unit] = {
+      for {
+        _      <- requestCollectors.recordLatency
+        _      <- requestCollectors.decInProgress
+        counter = if (response.isSuccess)
+                    successMapper
+                  else
+                    errorMapper
+        _      <- counter(request, response).map(_.inc()).sequence
+      } yield ()
+      // requestCollectors.maybeTimer.foreach(_.observeDuration())
+      // requestCollectors.maybeGauge.foreach(_.dec())
+      // observeResponseContentLengthSummaryIfMapped(request, response, responseToSizeSummaryMapper)
+
+      // if (response.isSuccess) {
+      //   incCounterIfMapped((request, response), requestToSuccessCounterMapper)
+      // } else {
+      //   incCounterIfMapped((request, response), requestToErrorCounterMapper)
+      // }
+    }
     //
     //  private def incCounterIfMapped[T](
     //      request: T,
