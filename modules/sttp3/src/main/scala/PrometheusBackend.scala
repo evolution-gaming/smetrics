@@ -1,8 +1,8 @@
 package sttp.client3.prometheus
 
-import cats._
+// import cats._
 // import cats.data.NonEmptyList
-import cats.effect.Resource
+// import cats.effect.Resource
 // import cats.implicits._
 // import com.evolutiongaming.smetrics._
 
@@ -21,26 +21,26 @@ object PrometheusBackend {
 
   def apply[F[_], P](
       delegate: SttpBackend[F, P],
-      requestToHistogramNameMapper: Request[_, _] => Option[Histogram[F]],
-      requestToInProgressGaugeNameMapper: Request[_, _] => Option[Gauge[F]],
-      responseToSuccessCounterMapper: (Request[_, _], Response[_]) => Option[Counter[F]],
-      responseToErrorCounterMapper: (Request[_, _], Response[_]) => Option[Counter[F]],
-      requestToFailureCounterMapper: (Request[_, _], Throwable) => Option[Counter[F]],
-      requestToSizeSummaryMapper: Request[_, _] => Option[Summary[F]],
-      responseToSizeSummaryMapper: (Request[_, _], Response[_]) => Option[Summary[F]],
+      latencyMapper: Request[_, _] => Option[Histogram[F]],
+      inProgressMapper: Request[_, _] => Option[Gauge[F]],
+      successMapper: (Request[_, _], Response[_]) => Option[Counter[F]],
+      errorMapper: (Request[_, _], Response[_]) => Option[Counter[F]],
+      failureMapper: (Request[_, _], Throwable) => Option[Counter[F]],
+      requestSizeMapper: Request[_, _] => Option[Summary[F]],
+      responseSizeMapper: (Request[_, _], Response[_]) => Option[Summary[F]],
   ): SttpBackend[F, P] = {
     // redirects should be handled before prometheus
     new FollowRedirectsBackend[F, P](
       new ListenerBackend[F, P, RequestCollectors](
         delegate,
         new PrometheusListener[F](
-          (req: Request[_, _]) => requestToHistogramNameMapper(req),
-          (req: Request[_, _]) => requestToInProgressGaugeNameMapper(req),
-          (rr: (Request[_, _], Response[_])) => responseToSuccessCounterMapper(rr._1, rr._2),
-          (rr: (Request[_, _], Response[_])) => responseToErrorCounterMapper(rr._1, rr._2),
-          (r: (Request[_, _], Throwable)) => requestToFailureCounterMapper(r._1, r._2),
-          (req: Request[_, _]) => requestToSizeSummaryMapper(req),
-          (rr: (Request[_, _], Response[_])) => responseToSizeSummaryMapper(rr._1, rr._2),
+          latencyMapper: Request[_, _] => Option[Histogram[F]],
+          inProgressMapper: Request[_, _] => Option[Gauge[F]],
+          successMapper: (Request[_, _], Response[_]) => Option[Counter[F]],
+          errorMapper: (Request[_, _], Response[_]) => Option[Counter[F]],
+          failureMapper: (Request[_, _], Throwable) => Option[Counter[F]],
+          requestSizeMapper: Request[_, _] => Option[Summary[F]],
+          responseSizeMapper: (Request[_, _], Response[_]) => Option[Summary[F]],
         ),
       )
     )
@@ -49,16 +49,19 @@ object PrometheusBackend {
   private[PrometheusBackend] final case class RequestCollectors()
 
   class PrometheusListener[F[_]](
-      requestToHistogramNameMapper: Request[_, _] => Option[HistogramCollectorConfig],
-      requestToInProgressGaugeNameMapper: Request[_, _] => Option[CollectorConfig],
-      requestToSuccessCounterMapper: ((Request[_, _], Response[_])) => Option[CollectorConfig],
-      requestToErrorCounterMapper: ((Request[_, _], Response[_])) => Option[CollectorConfig],
-      requestToFailureCounterMapper: ((Request[_, _], Exception)) => Option[CollectorConfig],
-      requestToSizeSummaryMapper: Request[_, _] => Option[CollectorConfig],
-      responseToSizeSummaryMapper: ((Request[_, _], Response[_])) => Option[CollectorConfig],
+      latencyMapper: Request[_, _] => Option[Histogram[F]],
+      inProgressMapper: Request[_, _] => Option[Gauge[F]],
+      successMapper: (Request[_, _], Response[_]) => Option[Counter[F]],
+      errorMapper: (Request[_, _], Response[_]) => Option[Counter[F]],
+      failureMapper: (Request[_, _], Throwable) => Option[Counter[F]],
+      requestSizeMapper: Request[_, _] => Option[Summary[F]],
+      responseSizeMapper: (Request[_, _], Response[_]) => Option[Summary[F]],
   ) extends RequestListener[F, RequestCollectors] {
 
-    //
+    def beforeRequest(request: Request[_, _]): F[RequestCollectors]                                       = ???
+    def requestException(request: Request[_, _], tag: RequestCollectors, e: Exception): F[Unit]           = ???
+    def requestSuccessful(request: Request[_, _], response: Response[_], tag: RequestCollectors): F[Unit] = ???
+
     //  override def beforeRequest(request: Request[_, _]): F[RequestCollectors] = {
     //    val requestTimer: Option[Histogram.Timer] = for {
     //      histogramData       <- requestToHistogramNameMapper(request)
