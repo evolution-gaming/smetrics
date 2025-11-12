@@ -65,14 +65,8 @@ object SmetricsBackend {
     def success(req: Request[_, _], resp: Response[_]): F[Unit]
     def error(req: Request[_, _], resp: Response[_]): F[Unit]
     def failure(req: Request[_, _], e: Throwable): F[Unit]
-    def requestSize(req: Request[_, _], size: Long): F[Unit]
-
-    def responseSize(
-        req: Request[_, _],
-        resp: Response[_]
-        /** size: Long? */
-    ): F[Unit]
-
+    def requestSize(req: Request[_, _]): F[Unit]
+    def responseSize(req: Request[_, _], resp: Response[_]): F[Unit]
   }
 
   object Metrics {
@@ -82,7 +76,7 @@ object SmetricsBackend {
       def success(req: Request[_, _], resp: Response[_]): F[Unit]      = Applicative[F].unit
       def error(req: Request[_, _], resp: Response[_]): F[Unit]        = Applicative[F].unit
       def failure(req: Request[_, _], e: Throwable): F[Unit]           = Applicative[F].unit
-      def requestSize(req: Request[_, _], size: Long): F[Unit]         = Applicative[F].unit
+      def requestSize(req: Request[_, _]): F[Unit]                     = Applicative[F].unit
       def responseSize(req: Request[_, _], resp: Response[_]): F[Unit] = Applicative[F].unit
     }
 
