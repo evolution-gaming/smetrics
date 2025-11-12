@@ -1,7 +1,7 @@
 package sttp.client3.prometheus
 
 import cats._
-import cats.implicits._
+import cats.syntax.all._
 // import cats.data.NonEmptyList
 // import cats.effect.Resource
 // import com.evolutiongaming.smetrics._
@@ -106,8 +106,8 @@ object PrometheusBackend {
       // RequestCollectors(requestTimer, gauge)
 
       // for {
-      //   _ <- latency.getOrElse(().pure[F])
-      //   _ <- inProgress.getOrElse(().pure[F])
+      //   record <- latency.getOrElse(Applicative[F].unit.pure[F])
+      //   _      <- inProgress.getOrElse(Applicative[F].unit)
       // } yield RequestCollectors()
       ???
     }
