@@ -42,7 +42,7 @@ object PrometheusBackend {
     )
   }
 
-  private[this] final case class RequestCollectors[F[_]](recordLatency: F[Unit])
+  private[this] final case class RequestCollectors[F[_]](recordLatency: F[Unit], decInProgress: F[Unit])
 
   private[this] class PrometheusListener[F[_]: Clock: Monad](
       latencyMapper: Request[_, _] => Option[Histogram[F]],
@@ -59,49 +59,26 @@ object PrometheusBackend {
     def requestSuccessful(request: Request[_, _], response: Response[_], tag: RequestCollectors[F]): F[Unit] = ???
 
     override def beforeRequest(request: Request[_, _]): F[RequestCollectors[F]] = {
-      // val requestTimer: Option[Histogram.Timer] = for {
-      //   histogramData       <- requestToHistogramNameMapper(request)
-      //   histogram: Histogram = getOrCreateMetric(histogramsCache, histogramData, createNewHistogram)
-      // } yield histogram.labels(histogramData.labelValues: _*).startTimer()
-
       val latency = for {
         latency <- latencyMapper(request)
       } yield for {
         duration <- MeasureDuration[F].start
       } yield duration.flatMap { duration => latency.observe(duration.toUnit(scala.concurrent.duration.SECONDS)) }
 
-      // val gauge: Option[Gauge.Child] = for {
-      //   gaugeData <- requestToInProgressGaugeNameMapper(request)
-      // } yield getOrCreateMetric(gaugesCache, gaugeData, createNewGauge).labels(gaugeData.labelValues: _*)
+      val inProgress = inProgressMapper(request)
 
-      val inProgress = for {
-        gauge <- inProgressMapper(request)
-      } yield gauge.inc()
-
-      // observeRequestContentLengthSummaryIfMapped(request, requestToSizeSummaryMapper)
-      //
-      //  private def observeRequestContentLengthSummaryIfMapped(
-      //      request: Request[_, _],
-      //      mapper: Request[_, _] => Option[BaseCollectorConfig]
-      //  ): Unit =
-      //    mapper(request).foreach { data =>
-      //      (request.contentLength: Option[Long]).map(_.toDouble).foreach { size =>
-      //        getOrCreateMetric(summariesCache, data, createNewSummary).labels(data.labelValues: _*).observe(size)
-      //      }
-      //    }
       val requestSize = for {
         requestSize <- requestSizeMapper(request)
         size        <- request.contentLength.map(_.toDouble)
       } yield requestSize.observe(size)
 
-      // gauge.foreach(_.inc())
-
-      // RequestCollectors(requestTimer, gauge)
-
       for {
         recordLatency <- latency.getOrElse(Applicative[F].unit.pure[F])
-        _             <- inProgress.getOrElse(Applicative[F].unit)
-      } yield RequestCollectors(recordLatency = recordLatency)
+        _             <- inProgress.map(_.inc()).getOrElse(Applicative[F].unit)
+      } yield RequestCollectors(
+        recordLatency = recordLatency,
+        decInProgress = inProgress.map(_.dec()).getOrElse(Applicative[F].unit)
+      )
     }
     //
     //  override def requestException(
