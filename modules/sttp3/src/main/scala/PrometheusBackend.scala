@@ -1,13 +1,16 @@
 package sttp.client3.prometheus
 
-// import cats._
+import cats._
+import cats.implicits._
 // import cats.data.NonEmptyList
 // import cats.effect.Resource
-// import cats.implicits._
 // import com.evolutiongaming.smetrics._
 
 // import java.util.concurrent.ConcurrentHashMap
+import cats.effect.kernel.Clock
+import com.evolutiongaming.catshelper.MeasureDuration
 import sttp.client3._
+
 // import io.prometheus.client.{CollectorRegistry, Counter, Gauge, Histogram, Summary}
 import sttp.client3.listener._
 // import sttp.client3.prometheus.PrometheusBackend.RequestCollectors
@@ -19,7 +22,7 @@ import com.evolutiongaming.smetrics._
 
 object PrometheusBackend {
 
-  def apply[F[_], P](
+  def apply[F[_]: Clock: FlatMap, P](
       delegate: SttpBackend[F, P],
       latencyMapper: Request[_, _] => Option[Histogram[F]],
       inProgressMapper: Request[_, _] => Option[Gauge[F]],
@@ -48,7 +51,7 @@ object PrometheusBackend {
 
   private[PrometheusBackend] final case class RequestCollectors()
 
-  class PrometheusListener[F[_]](
+  class PrometheusListener[F[_]: Clock: FlatMap](
       latencyMapper: Request[_, _] => Option[Histogram[F]],
       inProgressMapper: Request[_, _] => Option[Gauge[F]],
       successMapper: (Request[_, _], Response[_]) => Option[Counter[F]],
@@ -58,26 +61,33 @@ object PrometheusBackend {
       responseSizeMapper: (Request[_, _], Response[_]) => Option[Summary[F]],
   ) extends RequestListener[F, RequestCollectors] {
 
-    def beforeRequest(request: Request[_, _]): F[RequestCollectors]                                       = ???
+    // def beforeRequest(request: Request[_, _]): F[RequestCollectors]                                       = ???
     def requestException(request: Request[_, _], tag: RequestCollectors, e: Exception): F[Unit]           = ???
     def requestSuccessful(request: Request[_, _], response: Response[_], tag: RequestCollectors): F[Unit] = ???
 
-    //  override def beforeRequest(request: Request[_, _]): F[RequestCollectors] = {
-    //    val requestTimer: Option[Histogram.Timer] = for {
-    //      histogramData       <- requestToHistogramNameMapper(request)
-    //      histogram: Histogram = getOrCreateMetric(histogramsCache, histogramData, createNewHistogram)
-    //    } yield histogram.labels(histogramData.labelValues: _*).startTimer()
-    //
-    //    val gauge: Option[Gauge.Child] = for {
-    //      gaugeData <- requestToInProgressGaugeNameMapper(request)
-    //    } yield getOrCreateMetric(gaugesCache, gaugeData, createNewGauge).labels(gaugeData.labelValues: _*)
-    //
-    //    observeRequestContentLengthSummaryIfMapped(request, requestToSizeSummaryMapper)
-    //
-    //    gauge.foreach(_.inc())
-    //
-    //    RequestCollectors(requestTimer, gauge)
-    //  }
+    override def beforeRequest(request: Request[_, _]): F[RequestCollectors] = {
+      // val requestTimer: Option[Histogram.Timer] = for {
+      //   histogramData       <- requestToHistogramNameMapper(request)
+      //   histogram: Histogram = getOrCreateMetric(histogramsCache, histogramData, createNewHistogram)
+      // } yield histogram.labels(histogramData.labelValues: _*).startTimer()
+
+      val latency = for {
+        latency <- latencyMapper(request)
+      } yield for {
+        duration <- MeasureDuration[F].start
+      } yield duration.flatMap { duration => latency.observe(duration.toUnit(scala.concurrent.duration.SECONDS)) }
+
+      // val gauge: Option[Gauge.Child] = for {
+      //   gaugeData <- requestToInProgressGaugeNameMapper(request)
+      // } yield getOrCreateMetric(gaugesCache, gaugeData, createNewGauge).labels(gaugeData.labelValues: _*)
+
+      // observeRequestContentLengthSummaryIfMapped(request, requestToSizeSummaryMapper)
+
+      // gauge.foreach(_.inc())
+
+      // RequestCollectors(requestTimer, gauge)
+      ???
+    }
     //
     //  override def requestException(
     //      request: Request[_, _],
