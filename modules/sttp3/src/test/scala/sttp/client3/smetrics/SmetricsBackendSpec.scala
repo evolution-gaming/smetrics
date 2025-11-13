@@ -105,10 +105,10 @@ class InMemoryCollectorRegistry(ref: Ref[IO, Vector[MetricEvent]]) extends Colle
 }
 
 object InMemoryCollectorRegistry {
-  def create: IO[(CollectorRegistry[IO], IO[Vector[MetricEvent]])] =
-    Ref.of[IO, Vector[MetricEvent]](Vector.empty).map { ref =>
-      (new InMemoryCollectorRegistry(ref), ref.get)
-    }
+  def make: IO[(CollectorRegistry[IO], IO[Vector[MetricEvent]])] =
+    for {
+      ref <- Ref.of[IO, Vector[MetricEvent]](Vector.empty)
+    } yield new InMemoryCollectorRegistry(ref) -> ref.get
 }
 
 class SmetricsBackendSpec extends AnyFunSuiteLike with Matchers {
