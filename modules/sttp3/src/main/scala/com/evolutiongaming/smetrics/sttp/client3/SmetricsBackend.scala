@@ -12,13 +12,17 @@ import sttp.client3.listener._
 import com.evolutiongaming.smetrics._
 
 object SmetricsBackend {
-  val DefaultHistogramName               = "sttp_request_latency"
-  val DefaultRequestsInProgressGaugeName = "sttp_requests_in_progress"
-  val DefaultSuccessCounterName          = "sttp_requests_success_count"
-  val DefaultErrorCounterName            = "sttp_requests_error_count"
-  val DefaultFailureCounterName          = "sttp_requests_failure_count"
-  val DefaultRequestSizeName             = "sttp_request_size_bytes"
-  val DefaultResponseSizeName            = "sttp_response_size_bytes"
+
+  object MetricNames {
+    val DefaultPrefix                                        = "sttp_"
+    def latency(prefix: String = DefaultPrefix): String      = s"${prefix}request_latency_seconds"
+    def inProgress(prefix: String = DefaultPrefix): String   = s"${prefix}requests_in_progress"
+    def success(prefix: String = DefaultPrefix): String      = s"${prefix}requests_success_count"
+    def error(prefix: String = DefaultPrefix): String        = s"${prefix}requests_error_count"
+    def failure(prefix: String = DefaultPrefix): String      = s"${prefix}requests_failure_count"
+    def requestSize(prefix: String = DefaultPrefix): String  = s"${prefix}request_size_bytes"
+    def responseSize(prefix: String = DefaultPrefix): String = s"${prefix}response_size_bytes"
+  }
 
   val DefaultBuckets: List[Double] = List(.005, .01, .025, .05, .075, .1, .25, .5, .75, 1, 2.5, 5, 7.5, 10)
 
@@ -52,42 +56,43 @@ object SmetricsBackend {
   def apply[F[_]: Clock: Monad, P](
       delegate: SttpBackend[F, P],
       collectorRegistry: CollectorRegistry[F],
+      prefix: String = MetricNames.DefaultPrefix,
   ): Resource[F, SttpBackend[F, P]] = {
     for {
       latency      <- collectorRegistry.histogram(
-                        name = DefaultHistogramName,
+                        name = MetricNames.latency(prefix),
                         help = "Request latency in seconds",
                         buckets = Buckets(NonEmptyList.fromListUnsafe(DefaultBuckets)),
                         labels = LabelNames("method")
                       )
       inProgress   <- collectorRegistry.gauge(
-                        name = DefaultRequestsInProgressGaugeName,
+                        name = MetricNames.inProgress(prefix),
                         help = "Number of requests in progress",
                         labels = LabelNames("method")
                       )
       success      <- collectorRegistry.counter(
-                        name = DefaultSuccessCounterName,
+                        name = MetricNames.success(prefix),
                         help = "Number of successful requests",
                         labels = LabelNames("method", "status")
                       )
       error        <- collectorRegistry.counter(
-                        name = DefaultErrorCounterName,
+                        name = MetricNames.error(prefix),
                         help = "Number of errored requests",
                         labels = LabelNames("method", "status")
                       )
       failure      <- collectorRegistry.counter(
-                        name = DefaultFailureCounterName,
+                        name = MetricNames.failure(prefix),
                         help = "Number of failed requests",
                         labels = LabelNames("method")
                       )
       requestSize  <- collectorRegistry.summary(
-                        name = DefaultRequestSizeName,
+                        name = MetricNames.requestSize(prefix),
                         help = "Request size in bytes",
                         labels = LabelNames("method"),
                         quantiles = Quantiles.Default
                       )
       responseSize <- collectorRegistry.summary(
-                        name = DefaultResponseSizeName,
+                        name = MetricNames.responseSize(prefix),
                         help = "Response size in bytes",
                         labels = LabelNames("method", "status"),
                         quantiles = Quantiles.Default
