@@ -3,11 +3,18 @@ package sttp.client3.smetrics
 // import cats._
 // import cats.syntax.all._
 import cats.effect._
+import org.scalatest.funsuite.AsyncFunSuite
+import sttp.client3.smetrics.SmetricsBackend.MetricNames
+import sttp.client3._
+import sttp.client3.testing.SttpBackendStub
+import sttp.model.StatusCode
 // import cats.effect.syntax.all._
 import com.evolutiongaming.smetrics._
-import org.scalatest.funsuite.AnyFunSuiteLike
+// import org.scalatest.funsuite.AnyFunSuiteLike
 import org.scalatest.matchers.should.Matchers
 import cats.effect.Ref
+import com.evolutiongaming.smetrics.IOSuite._
+import sttp.client3.impl.cats.implicits._
 
 case class MetricEvent(name: String, metricType: String, labels: List[String], op: String, value: Double)
 
@@ -111,7 +118,59 @@ object InMemoryCollectorRegistry {
     } yield new InMemoryCollectorRegistry(ref) -> ref.get
 }
 
-class SmetricsBackendSpec extends AnyFunSuiteLike with Matchers {
+class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
 
   def inMemoryCollectorRegistry: CollectorRegistry[IO] = CollectorRegistry.empty[IO]
+
+  test("SmetricsBackend updates latency, in-progress, request size, response size for successful request") {
+    val body                  = "request-body"
+    val responseBody          = "response-body"
+    val responseContentLength = responseBody.length
+    val requestContentLength  = body.length
+    val uri                   = uri"https://test.com"
+
+    val stubBackend = SttpBackendStub[IO, Any](sttp.monad.MonadError[IO])
+      .whenRequestMatches(_ => true)
+      .thenRespond(
+        Response(
+          body = responseBody,
+          code = StatusCode.Ok,
+          statusText = "OK",
+          headers = Seq(sttp.model.Header("Content-Length", responseContentLength.toString)),
+        )
+      )
+
+    val test = for {
+      tuple             <- InMemoryCollectorRegistry.make
+      (registry, events) = tuple
+      backendR          <- SmetricsBackend(
+                             stubBackend,
+                             registry,
+                           ).allocated
+      (backend, release) = backendR
+      _                 <- basicRequest.post(uri).body(body).send(backend)
+      events            <- events
+      _                 <- release
+    } yield {
+      // Check latency metric
+      events.exists(e =>
+        e.name == MetricNames.latency() && e.metricType == "histogram" && e.op == "observe"
+      ) shouldBe true
+      // Check in-progress gauge inc/dec
+      events.exists(e => e.name == MetricNames.inProgress() && e.metricType == "gauge" && e.op == "inc") shouldBe true
+      events.exists(e => e.name == MetricNames.inProgress() && e.metricType == "gauge" && e.op == "dec") shouldBe true
+      // Check request size summary
+      events.exists(e =>
+        e.name == MetricNames
+          .requestSize() && e.metricType == "summary" && e.op == "observe" && e.value == requestContentLength
+      ) shouldBe true
+      // Check response size summary
+      events.exists(e =>
+        e.name == MetricNames
+          .responseSize() && e.metricType == "summary" && e.op == "observe" && e.value == responseContentLength
+      ) shouldBe true
+      println(events)
+    }
+    test.run()
+  }
 }
