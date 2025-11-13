@@ -1,4 +1,4 @@
-package com.evolutiongaming.smetrics.sttp3
+package com.evolutiongaming.smetrics.sttp.client3
 
 import cats._
 import cats.data.NonEmptyList
@@ -11,7 +11,7 @@ import sttp.client3._
 import sttp.client3.listener._
 import com.evolutiongaming.smetrics._
 
-object PrometheusBackend {
+object SmetricsBackend {
   val DefaultHistogramName               = "sttp_request_latency"
   val DefaultRequestsInProgressGaugeName = "sttp_requests_in_progress"
   val DefaultSuccessCounterName          = "sttp_requests_success_count"
