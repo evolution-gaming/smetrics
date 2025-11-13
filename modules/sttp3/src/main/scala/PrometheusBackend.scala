@@ -108,6 +108,12 @@ object PrometheusBackend {
       for {
         _      <- requestCollectors.recordLatency
         _      <- requestCollectors.decInProgress
+        _      <- {
+                    for {
+                      responseSize <- responseSizeMapper(request, response)
+                      size         <- response.contentLength.map(_.toDouble)
+                    } yield responseSize.observe(size)
+                  }.sequence
         counter = if (response.isSuccess)
                     successMapper
                   else
