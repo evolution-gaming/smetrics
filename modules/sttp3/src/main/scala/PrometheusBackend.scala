@@ -120,15 +120,6 @@ object PrometheusBackend {
                     errorMapper
         _      <- counter(request, response).map(_.inc()).sequence
       } yield ()
-      // requestCollectors.maybeTimer.foreach(_.observeDuration())
-      // requestCollectors.maybeGauge.foreach(_.dec())
-      // observeResponseContentLengthSummaryIfMapped(request, response, responseToSizeSummaryMapper)
-
-      // if (response.isSuccess) {
-      //   incCounterIfMapped((request, response), requestToSuccessCounterMapper)
-      // } else {
-      //   incCounterIfMapped((request, response), requestToErrorCounterMapper)
-      // }
     }
     //
     //  private def incCounterIfMapped[T](
