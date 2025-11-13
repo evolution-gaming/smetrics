@@ -20,9 +20,6 @@ object PrometheusBackend {
   val DefaultRequestSizeName             = "sttp_request_size_bytes"
   val DefaultResponseSizeName            = "sttp_response_size_bytes"
 
-  val DefaultMethodLabel = "method"
-  val DefaultStatusLabel = "status"
-
   val DefaultBuckets: List[Double] = List(.005, .01, .025, .05, .075, .1, .25, .5, .75, 1, 2.5, 5, 7.5, 10)
 
   def apply[F[_]: Clock: Monad, P](
