@@ -60,26 +60,68 @@ object PrometheusBackend {
       collectorRegistry: CollectorRegistry[F],
   ): Resource[F, SttpBackend[F, P]] = {
     for {
-      latency <- collectorRegistry.histogram(
-                   name = PrometheusBackend.DefaultHistogramName,
-                   help = "Request latency in seconds",
-                   buckets = Buckets(NonEmptyList.fromListUnsafe(DefaultBuckets)),
-                   labels = LabelNames("method", "status")
-                 )
-
+      latency      <- collectorRegistry.histogram(
+                        name = PrometheusBackend.DefaultHistogramName,
+                        help = "Request latency in seconds",
+                        buckets = Buckets(NonEmptyList.fromListUnsafe(DefaultBuckets)),
+                        labels = LabelNames("method")
+                      )
+      inProgress   <- collectorRegistry.gauge(
+                        name = PrometheusBackend.DefaultRequestsInProgressGaugeName,
+                        help = "Number of requests in progress",
+                        labels = LabelNames("method")
+                      )
+      success      <- collectorRegistry.counter(
+                        name = PrometheusBackend.DefaultSuccessCounterName,
+                        help = "Number of successful requests",
+                        labels = LabelNames("method", "status")
+                      )
+      error        <- collectorRegistry.counter(
+                        name = PrometheusBackend.DefaultErrorCounterName,
+                        help = "Number of errored requests",
+                        labels = LabelNames("method", "status")
+                      )
+      failure      <- collectorRegistry.counter(
+                        name = PrometheusBackend.DefaultFailureCounterName,
+                        help = "Number of failed requests",
+                        labels = LabelNames("method")
+                      )
+      requestSize  <- collectorRegistry.summary(
+                        name = PrometheusBackend.DefaultRequestSizeName,
+                        help = "Request size in bytes",
+                        labels = LabelNames("method"),
+                        quantiles = Quantiles.Default
+                      )
+      responseSize <- collectorRegistry.summary(
+                        name = PrometheusBackend.DefaultResponseSizeName,
+                        help = "Response size in bytes",
+                        labels = LabelNames("method", "status"),
+                        quantiles = Quantiles.Default
+                      )
     } yield {
+      def methodLabel(req: Request[_, _]): String = req.method.method.toUpperCase
+      def statusLabel(rsp: Response[_]): String   = {
+        val code = rsp.code
+        if (code.isInformational) "1xx"
+        else if (code.isSuccess) "2xx"
+        else if (code.isRedirect) "3xx"
+        else if (code.isClientError) "4xx"
+        else if (code.isServerError) "5xx"
+        else code.code.toString
+      }
+
       // redirects should be handled before prometheus
       new FollowRedirectsBackend[F, P](
         new ListenerBackend[F, P, RequestCollectors[F]](
           delegate,
           new PrometheusListener[F](
-            latencyMapper = { req => ??? }, // Request[_, _] => Option[Histogram[F]],
-            inProgressMapper = ???,         // Request[_, _] => Option[Gauge[F]],
-            successMapper = ???,            // (Request[_, _], Response[_]) => Option[Counter[F]],
-            errorMapper = ???,              // (Request[_, _], Response[_]) => Option[Counter[F]],
-            failureMapper = ???,            // (Request[_, _], Throwable) => Option[Counter[F]],
-            requestSizeMapper = ???,        // Request[_, _] => Option[Summary[F]],
-            responseSizeMapper = ???,       // (Request[_, _], Response[_]) => Option[Summary[F]],
+            latencyMapper = { req => latency.labels(methodLabel(req)).some },
+            inProgressMapper = { req => inProgress.labels(methodLabel(req)).some },
+            successMapper = { (req, rsp) => success.labels(methodLabel(req), statusLabel(rsp)).some },
+            errorMapper = { (req, rsp) => error.labels(methodLabel(req), statusLabel(rsp)).some },
+            failureMapper = { (req, _) => failure.labels(methodLabel(req)).some },
+            requestSizeMapper = { req => requestSize.labels(methodLabel(req)).some },
+            responseSizeMapper = { (req, rsp) => responseSize.labels(methodLabel(req), statusLabel(rsp)).some },
           ),
         )
       )
