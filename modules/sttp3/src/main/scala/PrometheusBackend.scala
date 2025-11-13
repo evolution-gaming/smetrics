@@ -121,38 +121,7 @@ object PrometheusBackend {
         _      <- counter(request, response).map(_.inc()).sequence
       } yield ()
     }
-    //
-    //  private def incCounterIfMapped[T](
-    //      request: T,
-    //      mapper: T => Option[BaseCollectorConfig]
-    //  ): Unit =
-    //    mapper(request).foreach { data =>
-    //      getOrCreateMetric(countersCache, data, createNewCounter).labels(data.labelValues: _*).inc()
-    //    }
-    //
-    //  private def observeResponseContentLengthSummaryIfMapped(
-    //      request: Request[_, _],
-    //      response: Response[_],
-    //      mapper: ((Request[_, _], Response[_])) => Option[BaseCollectorConfig]
-    //  ): Unit =
-    //    mapper((request, response)).foreach { data =>
-    //      response.contentLength.map(_.toDouble).foreach { size =>
-    //        getOrCreateMetric(summariesCache, data, createNewSummary).labels(data.labelValues: _*).observe(size)
-    //      }
-    //    }
-    //
-    //  private def getOrCreateMetric[T, C <: BaseCollectorConfig](
-    //      cache: ConcurrentHashMap[String, T],
-    //      data: C,
-    //      create: C => T
-    //  ): T =
-    //    cache.computeIfAbsent(
-    //      data.collectorName,
-    //      new java.util.function.Function[String, T] {
-    //        override def apply(t: String): T = create(data)
-    //      }
-    //    )
-    //
+
     //  private def createNewHistogram(data: HistogramCollectorConfig): Histogram = {
     //    Histogram
     //      .build()
