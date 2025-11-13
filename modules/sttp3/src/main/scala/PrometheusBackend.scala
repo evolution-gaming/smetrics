@@ -205,41 +205,6 @@ object PrometheusBackend {
       } yield ()
     }
 
-    //  private def createNewHistogram(data: HistogramCollectorConfig): Histogram = {
-    //    Histogram
-    //      .build()
-    //      .buckets(data.buckets: _*)
-    //      .name(data.collectorName)
-    //      .labelNames(data.labelNames: _*)
-    //      .help(data.collectorName)
-    //      .register(collectorRegistry)
-    //
-    //    collectorRegistry.histogram(data.collectorName, data.collectorName, data.labelNames: _*)
-    //  }
-    //
-    //  private def createNewGauge(data: BaseCollectorConfig): Gauge =
-    //    Gauge
-    //      .build()
-    //      .name(data.collectorName)
-    //      .labelNames(data.labelNames: _*)
-    //      .help(data.collectorName)
-    //      .register(collectorRegistry)
-    //
-    //  private def createNewCounter(data: BaseCollectorConfig): Counter =
-    //    Counter
-    //      .build()
-    //      .name(data.collectorName)
-    //      .labelNames(data.labelNames: _*)
-    //      .help(data.collectorName)
-    //      .register(collectorRegistry)
-    //
-    //  private def createNewSummary(data: BaseCollectorConfig): Summary =
-    //    Summary
-    //      .build()
-    //      .name(data.collectorName)
-    //      .labelNames(data.labelNames: _*)
-    //      .help(data.collectorName)
-    //      .register(collectorRegistry)
   }
 }
 
