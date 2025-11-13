@@ -38,7 +38,7 @@ object SmetricsBackend {
   ): SttpBackend[F, P] = {
     // redirects should be handled before prometheus
     new FollowRedirectsBackend[F, P](
-      new ListenerBackend[F, P, RequestCollectors[F]](
+      new ListenerBackend[F, P, State[F]](
         delegate,
         new PrometheusListener[F](
           latencyMapper: Request[_, _] => Option[Histogram[F]],
@@ -111,7 +111,7 @@ object SmetricsBackend {
 
       // redirects should be handled before prometheus
       new FollowRedirectsBackend[F, P](
-        new ListenerBackend[F, P, RequestCollectors[F]](
+        new ListenerBackend[F, P, State[F]](
           delegate,
           new PrometheusListener[F](
             latencyMapper = { req => latency.labels(methodLabel(req)).some },
@@ -127,7 +127,7 @@ object SmetricsBackend {
     }
   }
 
-  private[this] final case class RequestCollectors[F[_]](recordLatency: F[Unit], decInProgress: F[Unit])
+  private[this] final case class State[F[_]](recordLatency: F[Unit], decInProgress: F[Unit])
 
   private[this] class PrometheusListener[F[_]: Clock: Monad](
       latencyMapper: Request[_, _] => Option[Histogram[F]],
@@ -137,9 +137,9 @@ object SmetricsBackend {
       failureMapper: (Request[_, _], Throwable) => Option[Counter[F]],
       requestSizeMapper: Request[_, _] => Option[Summary[F]],
       responseSizeMapper: (Request[_, _], Response[_]) => Option[Summary[F]],
-  ) extends RequestListener[F, RequestCollectors[F]] {
+  ) extends RequestListener[F, State[F]] {
 
-    override def beforeRequest(request: Request[_, _]): F[RequestCollectors[F]] = {
+    override def beforeRequest(request: Request[_, _]): F[State[F]] = {
       val latency = for {
         latency <- latencyMapper(request)
       } yield for {
@@ -159,7 +159,7 @@ object SmetricsBackend {
         recordLatency <- latency.getOrElse(unit.pure[F])
         _             <- requestSize.getOrElse(unit)
         _             <- inProgress.map(_.inc()).getOrElse(unit)
-      } yield RequestCollectors(
+      } yield State(
         recordLatency = recordLatency,
         decInProgress = inProgress.map(_.dec()).getOrElse(unit)
       )
@@ -167,7 +167,7 @@ object SmetricsBackend {
 
     override def requestException(
         request: Request[_, _],
-        requestCollectors: RequestCollectors[F],
+        requestCollectors: State[F],
         e: Exception
     ): F[Unit] = {
       HttpError.find(e) match {
@@ -185,7 +185,7 @@ object SmetricsBackend {
     override def requestSuccessful(
         request: Request[_, _],
         response: Response[_],
-        requestCollectors: RequestCollectors[F]
+        requestCollectors: State[F]
     ): F[Unit] = {
       for {
         _      <- requestCollectors.recordLatency
