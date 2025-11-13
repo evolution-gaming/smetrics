@@ -8,10 +8,7 @@ import cats.effect.kernel.Clock
 import com.evolutiongaming.catshelper.MeasureDuration
 import sttp.client3._
 
-// import io.prometheus.client.{CollectorRegistry, Counter, Gauge, Histogram, Summary}
 import sttp.client3.listener._
-// import sttp.client3.Request
-// import sttp.model.StatusCode
 import com.evolutiongaming.smetrics._
 
 object PrometheusBackend {
