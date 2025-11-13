@@ -20,11 +20,13 @@ class InMemoryCollectorRegistry(ref: Ref[IO, Vector[MetricEvent]]) extends Colle
       help: String,
       labels: A
   )(implicit magnet: LabelsMagnet[A, B]): Resource[IO, B[Counter[IO]]] =
-    Resource.pure(magnet.withValues { labelValues =>
-      new Counter[IO] {
-        override def inc(value: Double): IO[Unit] = record("counter", name, labelValues, "inc", value)
+    Resource.pure {
+      magnet.withValues { labelValues =>
+        new Counter[IO] {
+          override def inc(value: Double): IO[Unit] = record("counter", name, labelValues, "inc", value)
+        }
       }
-    })
+    }
 
   override def counterInitialized[A, B[_]](
       name: String,
@@ -38,13 +40,17 @@ class InMemoryCollectorRegistry(ref: Ref[IO, Vector[MetricEvent]]) extends Colle
       help: String,
       labels: A
   )(implicit magnet: LabelsMagnet[A, B]): Resource[IO, B[Gauge[IO]]] =
-    Resource.pure(magnet.withValues { labelValues =>
-      new Gauge[IO] {
-        override def set(value: Double): IO[Unit] = record("gauge", name, labelValues, "set", value)
-        override def inc(value: Double): IO[Unit] = record("gauge", name, labelValues, "inc", value)
-        override def dec(value: Double): IO[Unit] = record("gauge", name, labelValues, "dec", value)
+    Resource.pure {
+      magnet.withValues { labelValues =>
+        new Gauge[IO] {
+          override def set(value: Double): IO[Unit] = record("gauge", name, labelValues, "set", value)
+
+          override def inc(value: Double): IO[Unit] = record("gauge", name, labelValues, "inc", value)
+
+          override def dec(value: Double): IO[Unit] = record("gauge", name, labelValues, "dec", value)
+        }
       }
-    })
+    }
 
   override def gaugeInitialized[A, B[_]](
       name: String,
@@ -59,11 +65,13 @@ class InMemoryCollectorRegistry(ref: Ref[IO, Vector[MetricEvent]]) extends Colle
       buckets: Buckets,
       labels: A
   )(implicit magnet: LabelsMagnet[A, B]): Resource[IO, B[Histogram[IO]]] =
-    Resource.pure(magnet.withValues { labelValues =>
-      new Histogram[IO] {
-        override def observe(value: Double): IO[Unit] = record("histogram", name, labelValues, "observe", value)
+    Resource.pure {
+      magnet.withValues { labelValues =>
+        new Histogram[IO] {
+          override def observe(value: Double): IO[Unit] = record("histogram", name, labelValues, "observe", value)
+        }
       }
-    })
+    }
 
   override def histogramInitialized[A, B[_]](
       name: String,
@@ -79,11 +87,13 @@ class InMemoryCollectorRegistry(ref: Ref[IO, Vector[MetricEvent]]) extends Colle
       quantiles: Quantiles,
       labels: A
   )(implicit magnet: LabelsMagnet[A, B]): Resource[IO, B[Summary[IO]]] =
-    Resource.pure(magnet.withValues { labelValues =>
-      new Summary[IO] {
-        override def observe(value: Double): IO[Unit] = record("summary", name, labelValues, "observe", value)
+    Resource.pure {
+      magnet.withValues { labelValues =>
+        new Summary[IO] {
+          override def observe(value: Double): IO[Unit] = record("summary", name, labelValues, "observe", value)
+        }
       }
-    })
+    }
 
   override def summaryInitialized[A, B[_]](
       name: String,
