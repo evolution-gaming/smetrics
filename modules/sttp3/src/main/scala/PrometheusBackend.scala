@@ -1,6 +1,7 @@
 package sttp.client3.prometheus
 
 import cats._
+import cats.data.NonEmptyList
 import cats.effect.Resource
 import cats.syntax.all._
 import cats.effect.kernel.Clock
@@ -24,6 +25,8 @@ object PrometheusBackend {
 
   val DefaultMethodLabel = "method"
   val DefaultStatusLabel = "status"
+
+  val DefaultBuckets: List[Double] = List(.005, .01, .025, .05, .075, .1, .25, .5, .75, 1, 2.5, 5, 7.5, 10)
 
   def apply[F[_]: Clock: Monad, P](
       delegate: SttpBackend[F, P],
@@ -57,30 +60,30 @@ object PrometheusBackend {
       collectorRegistry: CollectorRegistry[F],
   ): Resource[F, SttpBackend[F, P]] = {
     for {
-      latencyMapper <- collectorRegistry.histogram(
-                         name = PrometheusBackend.DefaultHistogramName,
-                         help = "Request latency in seconds",
-                         labelNames = Array("method", "status")
-                       )
+      latency <- collectorRegistry.histogram(
+                   name = PrometheusBackend.DefaultHistogramName,
+                   help = "Request latency in seconds",
+                   buckets = Buckets(NonEmptyList.fromListUnsafe(DefaultBuckets)),
+                   labels = LabelNames("method", "status")
+                 )
 
-    } yield ()
-
-    // redirects should be handled before prometheus
-    new FollowRedirectsBackend[F, P](
-      new ListenerBackend[F, P, RequestCollectors[F]](
-        delegate,
-        new PrometheusListener[F](
-          latencyMapper = ???,      // Request[_, _] => Option[Histogram[F]],
-          inProgressMapper = ???,   // Request[_, _] => Option[Gauge[F]],
-          successMapper = ???,      // (Request[_, _], Response[_]) => Option[Counter[F]],
-          errorMapper = ???,        // (Request[_, _], Response[_]) => Option[Counter[F]],
-          failureMapper = ???,      // (Request[_, _], Throwable) => Option[Counter[F]],
-          requestSizeMapper = ???,  // Request[_, _] => Option[Summary[F]],
-          responseSizeMapper = ???, // (Request[_, _], Response[_]) => Option[Summary[F]],
-        ),
+    } yield {
+      // redirects should be handled before prometheus
+      new FollowRedirectsBackend[F, P](
+        new ListenerBackend[F, P, RequestCollectors[F]](
+          delegate,
+          new PrometheusListener[F](
+            latencyMapper = { req => ??? }, // Request[_, _] => Option[Histogram[F]],
+            inProgressMapper = ???,         // Request[_, _] => Option[Gauge[F]],
+            successMapper = ???,            // (Request[_, _], Response[_]) => Option[Counter[F]],
+            errorMapper = ???,              // (Request[_, _], Response[_]) => Option[Counter[F]],
+            failureMapper = ???,            // (Request[_, _], Throwable) => Option[Counter[F]],
+            requestSizeMapper = ???,        // Request[_, _] => Option[Summary[F]],
+            responseSizeMapper = ???,       // (Request[_, _], Response[_]) => Option[Summary[F]],
+          ),
+        )
       )
-    )
-    ???
+    }
   }
 
   private[this] final case class RequestCollectors[F[_]](recordLatency: F[Unit], decInProgress: F[Unit])
