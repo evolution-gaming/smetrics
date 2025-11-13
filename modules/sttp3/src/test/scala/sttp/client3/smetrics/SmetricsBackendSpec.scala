@@ -126,20 +126,18 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
   def inMemoryCollectorRegistry: CollectorRegistry[IO] = CollectorRegistry.empty[IO]
 
   test("SmetricsBackend updates latency, in-progress, request size, response size for successful request") {
-    val body                  = "request-body"
-    val responseBody          = "response-body"
-    val responseContentLength = responseBody.length
-    val requestContentLength  = body.length
-    val uri                   = uri"https://test.com"
+    val body = "[]"
+    val html = "<html/>"
+    val uri  = uri"https://www.google.com"
 
     val stubBackend = SttpBackendStub[IO, Any](sttp.monad.MonadError[IO])
       .whenRequestMatches(_ => true)
       .thenRespond(
         Response(
-          body = responseBody,
+          body = html,
           code = StatusCode.Ok,
           statusText = "OK",
-          headers = Seq(sttp.model.Header("Content-Length", responseContentLength.toString)),
+          headers = Seq(sttp.model.Header("Content-Length", html.length.toString)),
         )
       )
 
@@ -154,6 +152,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
       events            <- registry.events
       _                 <- release
     } yield {
+      events.size shouldBe 6
       // Check latency metric
       events.exists(e =>
         e.name == MetricNames.latency() && e.metricType == "histogram" && e.op == "observe"
@@ -168,14 +167,58 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
       // Check request size summary
       events.exists(e =>
         e.name == MetricNames
-          .requestSize() && e.metricType == "summary" && e.op == "observe" && e.value == requestContentLength
+          .requestSize() && e.metricType == "summary" && e.op == "observe" && e.value == body.length
       ) shouldBe true
       // Check response size summary
       events.exists(e =>
         e.name == MetricNames
-          .responseSize() && e.metricType == "summary" && e.op == "observe" && e.value == responseContentLength
+          .responseSize() && e.metricType == "summary" && e.op == "observe" && e.value == html.length
       ) shouldBe true
-      println(events)
+      pprint.pprintln(events)
+      // val events1 = Vector(
+      //   MetricEvent(
+      //     name = "sttp_request_size_bytes",
+      //     metricType = "summary",
+      //     labels = List("POST"),
+      //     op = "observe",
+      //     value = 2.0
+      //   ),
+      //   MetricEvent(
+      //     name = "sttp_requests_in_progress",
+      //     metricType = "gauge",
+      //     labels = List("POST"),
+      //     op = "inc",
+      //     value = 1.0
+      //   ),
+      //   MetricEvent(
+      //     name = "sttp_request_latency_seconds",
+      //     metricType = "histogram",
+      //     labels = List("POST"),
+      //     op = "observe",
+      //     value = 0.004486334
+      //   ),
+      //   MetricEvent(
+      //     name = "sttp_requests_in_progress",
+      //     metricType = "gauge",
+      //     labels = List("POST"),
+      //     op = "dec",
+      //     value = 1.0
+      //   ),
+      //   MetricEvent(
+      //     name = "sttp_response_size_bytes",
+      //     metricType = "summary",
+      //     labels = List("POST", "2xx"),
+      //     op = "observe",
+      //     value = 7.0
+      //   ),
+      //   MetricEvent(
+      //     name = "sttp_requests_success_count",
+      //     metricType = "counter",
+      //     labels = List("POST", "2xx"),
+      //     op = "inc",
+      //     value = 1.0
+      //   )
+      // )
     }
     test.run()
   }
