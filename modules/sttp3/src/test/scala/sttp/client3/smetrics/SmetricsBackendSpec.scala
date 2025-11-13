@@ -9,11 +9,11 @@ import org.scalatest.funsuite.AnyFunSuiteLike
 import org.scalatest.matchers.should.Matchers
 import cats.effect.Ref
 
-case class MetricEvent(metricType: String, name: String, labels: List[String], op: String, value: Double)
+case class MetricEvent(name: String, metricType: String, labels: List[String], op: String, value: Double)
 
 class InMemoryCollectorRegistry(ref: Ref[IO, Vector[MetricEvent]]) extends CollectorRegistry[IO] {
-  private def record(metricType: String, name: String, labels: List[String], op: String, value: Double): IO[Unit] =
-    ref.update(events => events :+ MetricEvent(metricType, name, labels, op, value))
+  private def record(name: String, metricType: String, labels: List[String], op: String, value: Double): IO[Unit] =
+    ref.update(events => events :+ MetricEvent(name, metricType, labels, op, value))
 
   override def counter[A, B[_]](
       name: String,
@@ -23,7 +23,7 @@ class InMemoryCollectorRegistry(ref: Ref[IO, Vector[MetricEvent]]) extends Colle
     Resource.pure {
       magnet.withValues { labelValues =>
         new Counter[IO] {
-          override def inc(value: Double): IO[Unit] = record("counter", name, labelValues, "inc", value)
+          override def inc(value: Double): IO[Unit] = record(name, "counter", labelValues, "inc", value)
         }
       }
     }
@@ -43,11 +43,11 @@ class InMemoryCollectorRegistry(ref: Ref[IO, Vector[MetricEvent]]) extends Colle
     Resource.pure {
       magnet.withValues { labelValues =>
         new Gauge[IO] {
-          override def set(value: Double): IO[Unit] = record("gauge", name, labelValues, "set", value)
+          override def set(value: Double): IO[Unit] = record(name, "gauge", labelValues, "set", value)
 
-          override def inc(value: Double): IO[Unit] = record("gauge", name, labelValues, "inc", value)
+          override def inc(value: Double): IO[Unit] = record(name, "gauge", labelValues, "inc", value)
 
-          override def dec(value: Double): IO[Unit] = record("gauge", name, labelValues, "dec", value)
+          override def dec(value: Double): IO[Unit] = record(name, "gauge", labelValues, "dec", value)
         }
       }
     }
@@ -68,7 +68,7 @@ class InMemoryCollectorRegistry(ref: Ref[IO, Vector[MetricEvent]]) extends Colle
     Resource.pure {
       magnet.withValues { labelValues =>
         new Histogram[IO] {
-          override def observe(value: Double): IO[Unit] = record("histogram", name, labelValues, "observe", value)
+          override def observe(value: Double): IO[Unit] = record(name, "histogram", labelValues, "observe", value)
         }
       }
     }
@@ -90,7 +90,7 @@ class InMemoryCollectorRegistry(ref: Ref[IO, Vector[MetricEvent]]) extends Colle
     Resource.pure {
       magnet.withValues { labelValues =>
         new Summary[IO] {
-          override def observe(value: Double): IO[Unit] = record("summary", name, labelValues, "observe", value)
+          override def observe(value: Double): IO[Unit] = record(name, "summary", labelValues, "observe", value)
         }
       }
     }
