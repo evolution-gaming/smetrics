@@ -58,39 +58,39 @@ object PrometheusBackend {
   ): Resource[F, SttpBackend[F, P]] = {
     for {
       latency      <- collectorRegistry.histogram(
-                        name = PrometheusBackend.DefaultHistogramName,
+                        name = DefaultHistogramName,
                         help = "Request latency in seconds",
                         buckets = Buckets(NonEmptyList.fromListUnsafe(DefaultBuckets)),
                         labels = LabelNames("method")
                       )
       inProgress   <- collectorRegistry.gauge(
-                        name = PrometheusBackend.DefaultRequestsInProgressGaugeName,
+                        name = DefaultRequestsInProgressGaugeName,
                         help = "Number of requests in progress",
                         labels = LabelNames("method")
                       )
       success      <- collectorRegistry.counter(
-                        name = PrometheusBackend.DefaultSuccessCounterName,
+                        name = DefaultSuccessCounterName,
                         help = "Number of successful requests",
                         labels = LabelNames("method", "status")
                       )
       error        <- collectorRegistry.counter(
-                        name = PrometheusBackend.DefaultErrorCounterName,
+                        name = DefaultErrorCounterName,
                         help = "Number of errored requests",
                         labels = LabelNames("method", "status")
                       )
       failure      <- collectorRegistry.counter(
-                        name = PrometheusBackend.DefaultFailureCounterName,
+                        name = DefaultFailureCounterName,
                         help = "Number of failed requests",
                         labels = LabelNames("method")
                       )
       requestSize  <- collectorRegistry.summary(
-                        name = PrometheusBackend.DefaultRequestSizeName,
+                        name = DefaultRequestSizeName,
                         help = "Request size in bytes",
                         labels = LabelNames("method"),
                         quantiles = Quantiles.Default
                       )
       responseSize <- collectorRegistry.summary(
-                        name = PrometheusBackend.DefaultResponseSizeName,
+                        name = DefaultResponseSizeName,
                         help = "Response size in bytes",
                         labels = LabelNames("method", "status"),
                         quantiles = Quantiles.Default
