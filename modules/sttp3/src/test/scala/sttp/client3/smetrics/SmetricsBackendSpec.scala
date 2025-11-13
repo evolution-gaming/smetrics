@@ -18,9 +18,12 @@ import sttp.client3.impl.cats.implicits._
 
 case class MetricEvent(name: String, metricType: String, labels: List[String], op: String, value: Double)
 
-class InMemoryCollectorRegistry(ref: Ref[IO, Vector[MetricEvent]]) extends CollectorRegistry[IO] {
+class InMemoryCollectorRegistry(state: Ref[IO, Vector[MetricEvent]]) extends CollectorRegistry[IO] {
+
+  def events: IO[Vector[MetricEvent]] = state.get
+
   private def record(name: String, metricType: String, labels: List[String], op: String, value: Double): IO[Unit] =
-    ref.update(events => events :+ MetricEvent(name, metricType, labels, op, value))
+    state.update(events => events :+ MetricEvent(name, metricType, labels, op, value))
 
   override def counter[A, B[_]](
       name: String,
@@ -112,10 +115,10 @@ class InMemoryCollectorRegistry(ref: Ref[IO, Vector[MetricEvent]]) extends Colle
 }
 
 object InMemoryCollectorRegistry {
-  def make: IO[(CollectorRegistry[IO], IO[Vector[MetricEvent]])] =
+  def make: IO[InMemoryCollectorRegistry] =
     for {
       ref <- Ref.of[IO, Vector[MetricEvent]](Vector.empty)
-    } yield new InMemoryCollectorRegistry(ref) -> ref.get
+    } yield new InMemoryCollectorRegistry(ref)
 }
 
 class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
@@ -141,15 +144,14 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
       )
 
     val test = for {
-      tuple             <- InMemoryCollectorRegistry.make
-      (registry, events) = tuple
-      backendR          <- SmetricsBackend(
+      registry          <- InMemoryCollectorRegistry.make
+      backendAllocated  <- SmetricsBackend(
                              stubBackend,
                              registry,
                            ).allocated
-      (backend, release) = backendR
+      (backend, release) = backendAllocated
       _                 <- basicRequest.post(uri).body(body).send(backend)
-      events            <- events
+      events            <- registry.events
       _                 <- release
     } yield {
       // Check latency metric
