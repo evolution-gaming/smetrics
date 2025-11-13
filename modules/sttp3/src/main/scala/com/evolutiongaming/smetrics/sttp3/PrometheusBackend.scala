@@ -1,4 +1,4 @@
-package sttp.client3.prometheus
+package com.evolutiongaming.smetrics.sttp3
 
 import cats._
 import cats.data.NonEmptyList
