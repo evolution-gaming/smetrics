@@ -159,8 +159,12 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
         e.name == MetricNames.latency() && e.metricType == "histogram" && e.op == "observe"
       ) shouldBe true
       // Check in-progress gauge inc/dec
-      events.exists(e => e.name == MetricNames.inProgress() && e.metricType == "gauge" && e.op == "inc") shouldBe true
-      events.exists(e => e.name == MetricNames.inProgress() && e.metricType == "gauge" && e.op == "dec") shouldBe true
+      events.exists(e =>
+        e.name == MetricNames.inProgress() && e.metricType == "gauge" && e.op == "inc" && e.value == 1.0d
+      ) shouldBe true
+      events.exists(e =>
+        e.name == MetricNames.inProgress() && e.metricType == "gauge" && e.op == "dec" && e.value == 1.0d
+      ) shouldBe true
       // Check request size summary
       events.exists(e =>
         e.name == MetricNames
