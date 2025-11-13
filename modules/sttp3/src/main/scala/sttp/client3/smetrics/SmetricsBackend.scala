@@ -1,4 +1,4 @@
-package com.evolutiongaming.smetrics.sttp.client3
+package sttp.client3.smetrics
 
 import cats._
 import cats.data.NonEmptyList
