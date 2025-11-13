@@ -1,8 +1,8 @@
 package sttp.client3.prometheus
 
 import cats._
+import cats.effect.Resource
 import cats.syntax.all._
-
 import cats.effect.kernel.Clock
 import com.evolutiongaming.catshelper.MeasureDuration
 import sttp.client3._
@@ -14,6 +14,16 @@ import sttp.client3.listener._
 import com.evolutiongaming.smetrics._
 
 object PrometheusBackend {
+  val DefaultHistogramName               = "sttp_request_latency"
+  val DefaultRequestsInProgressGaugeName = "sttp_requests_in_progress"
+  val DefaultSuccessCounterName          = "sttp_requests_success_count"
+  val DefaultErrorCounterName            = "sttp_requests_error_count"
+  val DefaultFailureCounterName          = "sttp_requests_failure_count"
+  val DefaultRequestSizeName             = "sttp_request_size_bytes"
+  val DefaultResponseSizeName            = "sttp_response_size_bytes"
+
+  val DefaultMethodLabel = "method"
+  val DefaultStatusLabel = "status"
 
   def apply[F[_]: Clock: Monad, P](
       delegate: SttpBackend[F, P],
@@ -40,6 +50,37 @@ object PrometheusBackend {
         ),
       )
     )
+  }
+
+  def apply[F[_]: Clock: Monad, P](
+      delegate: SttpBackend[F, P],
+      collectorRegistry: CollectorRegistry[F],
+  ): Resource[F, SttpBackend[F, P]] = {
+    for {
+      latencyMapper <- collectorRegistry.histogram(
+                         name = PrometheusBackend.DefaultHistogramName,
+                         help = "Request latency in seconds",
+                         labelNames = Array("method", "status")
+                       )
+
+    } yield ()
+
+    // redirects should be handled before prometheus
+    new FollowRedirectsBackend[F, P](
+      new ListenerBackend[F, P, RequestCollectors[F]](
+        delegate,
+        new PrometheusListener[F](
+          latencyMapper = ???,      // Request[_, _] => Option[Histogram[F]],
+          inProgressMapper = ???,   // Request[_, _] => Option[Gauge[F]],
+          successMapper = ???,      // (Request[_, _], Response[_]) => Option[Counter[F]],
+          errorMapper = ???,        // (Request[_, _], Response[_]) => Option[Counter[F]],
+          failureMapper = ???,      // (Request[_, _], Throwable) => Option[Counter[F]],
+          requestSizeMapper = ???,  // Request[_, _] => Option[Summary[F]],
+          responseSizeMapper = ???, // (Request[_, _], Response[_]) => Option[Summary[F]],
+        ),
+      )
+    )
+    ???
   }
 
   private[this] final case class RequestCollectors[F[_]](recordLatency: F[Unit], decInProgress: F[Unit])
