@@ -62,45 +62,47 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
 
   test("error request") {
     val body     = "[]"
-    val response = "Not Found"
-    val uri      = uri"https://www.google.com"
+    val response = "Client or server error"
+    val uri      = uri"/"
 
-    val stubBackend = SttpBackendStub[IO, Any](sttp.monad.MonadError[IO])
-      .whenRequestMatches(_ => true)
-      .thenRespond(
-        Response(
-          body = response,
-          code = StatusCode.NotFound,
-          statusText = "Not Found",
-          headers = Seq(Header.contentLength(response.length.toLong)),
+    def check(status: StatusCode) = {
+
+      val stubBackend = SttpBackendStub[IO, Any](sttp.monad.MonadError[IO]).whenAnyRequest
+        .thenRespond(
+          Response(
+            body = response,
+            code = status,
+          ).copy(headers = Seq(Header.contentLength(response.length.toLong)))
         )
-      )
 
-    val test = for {
-      registry          <- InMemoryCollectorRegistry.make
-      backendAllocated  <- SmetricsBackend(
-                             stubBackend,
-                             registry,
-                           ).allocated
-      (backend, release) = backendAllocated
-      _                 <- basicRequest.post(uri).body(body).send(backend)
-      events            <- registry.events
-      _                 <- release
-    } yield {
-      val `response.length` = response.length.toDouble
-      val `body.length`     = body.length.toDouble
+      for {
+        registry          <- InMemoryCollectorRegistry.make
+        backendAllocated  <- SmetricsBackend(
+                               stubBackend,
+                               registry,
+                             ).allocated
+        (backend, release) = backendAllocated
+        _                 <- basicRequest.post(uri).body(body).send(backend)
+        events            <- registry.events
+        _                 <- release
+      } yield {
+        val `rsp.length`  = response.length.toDouble
+        val `body.length` = body.length.toDouble
+        val sts           = s"${status.code / 100}xy"
 
-      events.size shouldBe 6
-      events.collect {
-        case MetricEvent("sttp_request_size_bytes", "summary", List("POST"), "observe", `body.length`)             => 1
-        case MetricEvent("sttp_requests_in_progress", "gauge", List("POST"), "inc", 1.0)                           => 2
-        case MetricEvent("sttp_request_latency_seconds", "histogram", List("POST"), "observe", `(0, 0.05]`(true))  => 3
-        case MetricEvent("sttp_requests_in_progress", "gauge", List("POST"), "dec", 1.0)                           => 4
-        case MetricEvent("sttp_response_size_bytes", "summary", List("POST", "4xx"), "observe", `response.length`) => 5
-        case MetricEvent("sttp_requests_error_count", "counter", List("POST", "4xx"), "inc", 1.0)                  => 6
-      } shouldBe List(1, 2, 3, 4, 5, 6)
+        events.size shouldBe 6
+        events.collect {
+          case MetricEvent("sttp_request_size_bytes", "summary", List("POST"), "observe", `body.length`)            => 1
+          case MetricEvent("sttp_requests_in_progress", "gauge", List("POST"), "inc", 1.0)                          => 2
+          case MetricEvent("sttp_request_latency_seconds", "histogram", List("POST"), "observe", `(0, 0.05]`(true)) => 3
+          case MetricEvent("sttp_requests_in_progress", "gauge", List("POST"), "dec", 1.0)                          => 4
+          case MetricEvent("sttp_response_size_bytes", "summary", List("POST", `sts`), "observe", `rsp.length`)     => 5
+          case MetricEvent("sttp_requests_error_count", "counter", List("POST", `sts`), "inc", 1.0)                 => 6
+        } shouldBe List(1, 2, 3, 4, 5, 6)
+      }
     }
-    test.run()
+
+    { check(StatusCode.NotFound) *> check(StatusCode.InternalServerError) }.run()
   }
 
   test("failure request") {
