@@ -57,12 +57,12 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
 
       events.size shouldBe 6
       events.collect {
-        case MetricEvent("sttp_request_size_bytes", "summary", List("POST"), "observe", `reqSize`)                => 1
-        case MetricEvent("sttp_requests_in_progress", "gauge", List("POST"), "inc", 1.0)                          => 2
-        case MetricEvent("sttp_request_latency_seconds", "histogram", List("POST"), "observe", `(0, 0.05]`(true)) => 3
-        case MetricEvent("sttp_requests_in_progress", "gauge", List("POST"), "dec", 1.0)                          => 4
-        case MetricEvent("sttp_response_size_bytes", "summary", List("POST", "2xx"), "observe", `rspSize`)        => 5
-        case MetricEvent("sttp_requests_success_count", "counter", List("POST", "2xx"), "inc", 1.0)               => 6
+        case MetricEvent("sttp_request_size_bytes", "summary", List("POST"), "observe", `reqSize`)             => 1
+        case MetricEvent("sttp_requests_in_progress", "gauge", List("POST"), "inc", 1.0)                       => 2
+        case MetricEvent("sttp_request_latency_seconds", "histogram", List("POST"), "observe", `(0, 0.05]`(_)) => 3
+        case MetricEvent("sttp_requests_in_progress", "gauge", List("POST"), "dec", 1.0)                       => 4
+        case MetricEvent("sttp_response_size_bytes", "summary", List("POST", "2xx"), "observe", `rspSize`)     => 5
+        case MetricEvent("sttp_requests_success_count", "counter", List("POST", "2xx"), "inc", 1.0)            => 6
       } shouldBe List(1, 2, 3, 4, 5, 6)
     }.run()
   }
@@ -91,12 +91,12 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
 
         events.size shouldBe 6
         events.collect {
-          case MetricEvent("sttp_request_size_bytes", "summary", List("POST"), "observe", `reqSize`)                => 1
-          case MetricEvent("sttp_requests_in_progress", "gauge", List("POST"), "inc", 1.0)                          => 2
-          case MetricEvent("sttp_request_latency_seconds", "histogram", List("POST"), "observe", `(0, 0.05]`(true)) => 3
-          case MetricEvent("sttp_requests_in_progress", "gauge", List("POST"), "dec", 1.0)                          => 4
-          case MetricEvent("sttp_response_size_bytes", "summary", List("POST", `sts`), "observe", `rspSize`)        => 5
-          case MetricEvent("sttp_requests_error_count", "counter", List("POST", `sts`), "inc", 1.0)                 => 6
+          case MetricEvent("sttp_request_size_bytes", "summary", List("POST"), "observe", `reqSize`)             => 1
+          case MetricEvent("sttp_requests_in_progress", "gauge", List("POST"), "inc", 1.0)                       => 2
+          case MetricEvent("sttp_request_latency_seconds", "histogram", List("POST"), "observe", `(0, 0.05]`(_)) => 3
+          case MetricEvent("sttp_requests_in_progress", "gauge", List("POST"), "dec", 1.0)                       => 4
+          case MetricEvent("sttp_response_size_bytes", "summary", List("POST", `sts`), "observe", `rspSize`)     => 5
+          case MetricEvent("sttp_requests_error_count", "counter", List("POST", `sts`), "inc", 1.0)              => 6
         } shouldBe List(1, 2, 3, 4, 5, 6)
       }
     }
@@ -138,11 +138,11 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
 
       events.size shouldBe 5
       events.collect {
-        case MetricEvent("sttp_request_size_bytes", "summary", List("POST"), "observe", `body.length`)            => 1
-        case MetricEvent("sttp_requests_in_progress", "gauge", List("POST"), "inc", 1.0)                          => 2
-        case MetricEvent("sttp_request_latency_seconds", "histogram", List("POST"), "observe", `(0, 0.05]`(true)) => 3
-        case MetricEvent("sttp_requests_in_progress", "gauge", List("POST"), "dec", 1.0)                          => 4
-        case MetricEvent("sttp_requests_failure_count", "counter", List("POST"), "inc", 1.0)                      => 5
+        case MetricEvent("sttp_request_size_bytes", "summary", List("POST"), "observe", `body.length`)         => 1
+        case MetricEvent("sttp_requests_in_progress", "gauge", List("POST"), "inc", 1.0)                       => 2
+        case MetricEvent("sttp_request_latency_seconds", "histogram", List("POST"), "observe", `(0, 0.05]`(_)) => 3
+        case MetricEvent("sttp_requests_in_progress", "gauge", List("POST"), "dec", 1.0)                       => 4
+        case MetricEvent("sttp_requests_failure_count", "counter", List("POST"), "inc", 1.0)                   => 5
       } shouldBe List(1, 2, 3, 4, 5)
     }
     test.run()
@@ -280,8 +280,8 @@ object SmetricsBackendSpec {
   }
 
   case class Within(a: Double, b: Double) {
-    def unapply(value: Double): Option[Boolean] =
-      Some(value > a && value <= b)
+    def unapply(value: Double): Option[Double] =
+      Option.when(value > a && value <= b)(value)
   }
 
   implicit class ResponseOps[A](val response: Response[A]) extends AnyVal {
