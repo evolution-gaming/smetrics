@@ -35,12 +35,11 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
     } yield events
   }
 
-  val `/` = uri"/"
+  val `/`  = uri"/"
+  val body = "[]"
+  val html = "<html/>"
 
   test("successful request") {
-    val body = "[]"
-    val html = "<html/>"
-
     collect(
       stub =>
         stub.whenAnyRequest
@@ -68,9 +67,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
   }
 
   test("error request") {
-    val body     = "[]"
     val response = "Client or server error"
-    val uri      = uri"/"
 
     def check(status: StatusCode) = {
 
@@ -83,7 +80,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
                 code = status,
               ).withContentLength(response.length.toLong)
             ),
-        backend => basicRequest.post(uri).body(body).send(backend)
+        backend => basicRequest.post(`/`).body(body).send(backend)
       ).map { events =>
         val `rspSize` = response.length.toDouble
         val `reqSize` = body.length.toDouble
@@ -105,14 +102,11 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
   }
 
   test("failure request") {
-    val body = "[]"
-    val uri  = uri"/"
-
     collect(
       stub => stub.whenAnyRequest.thenRespondOk(),
       backend =>
         basicRequest
-          .post(uri)
+          .post(`/`)
           .body(body)
           .response {
             asString.map[Either[String, String]] { _ =>
