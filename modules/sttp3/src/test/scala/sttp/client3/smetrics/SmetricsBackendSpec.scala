@@ -1,5 +1,7 @@
 package sttp.client3.smetrics
 
+import cats.data.NonEmptyList
+import cats.syntax.all._
 import cats.effect._
 import org.scalatest.funsuite.AsyncFunSuite
 import sttp.client3._
@@ -11,6 +13,7 @@ import org.scalatest.matchers.should.Matchers
 import cats.effect.Ref
 import com.evolutiongaming.smetrics.IOSuite._
 import sttp.client3.impl.cats.implicits._
+import sttp.client3.smetrics.SmetricsBackend.{DefaultBuckets, MetricNames, methodLabel, statusLabel}
 
 class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
 
@@ -153,6 +156,144 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
         events.nonEmpty shouldBe true
         events.forall(_.name.startsWith("prefix_")) shouldBe true
       }
+    }
+  }
+
+  test("configure metrics labels") {
+    runIO {
+      val stubBackend = SttpBackendStub[IO, Any](sttp.monad.MonadError[IO]).whenAnyRequest.thenRespond(
+        Response(
+          body = html,
+          code = StatusCode.Ok,
+        ).withContentLength(html.length.toLong)
+      )
+
+      def label(name: String)(req: Request[_, _]): String =
+        req.tag(name).map(_.toString).getOrElse("unknown")
+
+      val backendLabel  = label("backend")(_)
+      val resourceLabel = label("resource")(_)
+
+      val prefix   = "client_"
+      val resource = for {
+        registry     <- InMemoryCollectorRegistry.make.toResource
+        latency      <- registry.histogram(
+                          name = MetricNames.latency(prefix),
+                          help = "Request latency in seconds",
+                          buckets = Buckets(NonEmptyList.fromListUnsafe(DefaultBuckets)),
+                          labels = LabelNames("method", "backend", "resource")
+                        )
+        inProgress   <- registry.gauge(
+                          name = MetricNames.inProgress(prefix),
+                          help = "Number of requests in progress",
+                          labels = LabelNames("method", "backend", "resource")
+                        )
+        success      <- registry.counter(
+                          name = MetricNames.success(prefix),
+                          help = "Number of successful requests",
+                          labels = LabelNames("method", "status", "backend", "resource")
+                        )
+        error        <- registry.counter(
+                          name = MetricNames.error(prefix),
+                          help = "Number of errored requests",
+                          labels = LabelNames("method", "status", "backend", "resource")
+                        )
+        failure      <- registry.counter(
+                          name = MetricNames.failure(prefix),
+                          help = "Number of failed requests",
+                          labels = LabelNames("method", "backend", "resource")
+                        )
+        requestSize  <- registry.summary(
+                          name = MetricNames.requestSize(prefix),
+                          help = "Request size in bytes",
+                          labels = LabelNames("method", "backend", "resource"),
+                          quantiles = Quantiles.Default
+                        )
+        responseSize <- registry.summary(
+                          name = MetricNames.responseSize(prefix),
+                          help = "Response size in bytes",
+                          labels = LabelNames("method", "status", "backend", "resource"),
+                          quantiles = Quantiles.Default
+                        )
+
+        backend = SmetricsBackend(
+                    stubBackend,
+                    latencyMapper = { req =>
+                      latency.labels(methodLabel(req), backendLabel(req), resourceLabel(req)).some
+                    },
+                    inProgressMapper = { req =>
+                      inProgress.labels(methodLabel(req), backendLabel(req), resourceLabel(req)).some
+                    },
+                    successMapper = { (req, rsp) =>
+                      success.labels(methodLabel(req), statusLabel(rsp), backendLabel(req), resourceLabel(req)).some
+                    },
+                    errorMapper = { (req, rsp) =>
+                      error.labels(methodLabel(req), statusLabel(rsp), backendLabel(req), resourceLabel(req)).some
+                    },
+                    failureMapper = { (req, _) =>
+                      failure.labels(methodLabel(req), backendLabel(req), resourceLabel(req)).some
+                    },
+                    requestSizeMapper = { req =>
+                      requestSize.labels(methodLabel(req), backendLabel(req), resourceLabel(req)).some
+                    },
+                    responseSizeMapper = { (req, rsp) =>
+                      responseSize
+                        .labels(methodLabel(req), statusLabel(rsp), backendLabel(req), resourceLabel(req))
+                        .some
+                    },
+                  )
+        _      <- Resource.eval {
+                    basicRequest
+                      .post(`/`)
+                      .body(body)
+                      .tag("backend", "primary")
+                      .tag("resource", "users")
+                      .send(backend)
+                  }
+        events <- registry.events.toResource
+      } yield {
+        withClue(events) {
+          events.size shouldBe 6
+          events.collect {
+            case MetricEvent(
+                  "client_request_size_bytes",
+                  "summary",
+                  List("POST", "primary", "users"),
+                  "observe",
+                  2.0
+                ) =>
+              1
+            case MetricEvent("client_requests_in_progress", "gauge", List("POST", "primary", "users"), "inc", 1.0) => 2
+            case MetricEvent(
+                  "client_request_latency_seconds",
+                  "histogram",
+                  List("POST", "primary", "users"),
+                  "observe",
+                  `(0, 0.05]`(_)
+                ) =>
+              3
+            case MetricEvent("client_requests_in_progress", "gauge", List("POST", "primary", "users"), "dec", 1.0) => 4
+            case MetricEvent(
+                  "client_response_size_bytes",
+                  "summary",
+                  List("POST", "2xx", "primary", "users"),
+                  "observe",
+                  7.0
+                ) =>
+              5
+            case MetricEvent(
+                  "client_requests_success_count",
+                  "counter",
+                  List("POST", "2xx", "primary", "users"),
+                  "inc",
+                  1.0
+                ) =>
+              6
+          } shouldBe List(1, 2, 3, 4, 5, 6)
+        }
+      }
+
+      resource.use(_.pure[IO])
     }
   }
 }
