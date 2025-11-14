@@ -108,32 +108,23 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
     val body = "[]"
     val uri  = uri"/"
 
-    val stubBackend = SttpBackendStub[IO, Any](sttp.monad.MonadError[IO]).whenAnyRequest
-      .thenRespondOk()
-
-    val test = for {
-      registry          <- InMemoryCollectorRegistry.make
-      backendAllocated  <- SmetricsBackend(
-                             stubBackend,
-                             registry,
-                           ).allocated
-      (backend, release) = backendAllocated
-      _                 <- basicRequest
-                             .post(uri)
-                             .body(body)
-                             .response {
-                               asString.map[Either[String, String]] { _ =>
-                                 throw DeserializationException("Unknown body", new Exception("Unable to parse"))
-                               }
-                             }
-                             .send(backend)
-                             .attempt
-                             .map { errorOrResponse =>
-                               assertThrows[SttpClientException](errorOrResponse.toTry.get)
-                             }
-      events            <- registry.events
-      _                 <- release
-    } yield {
+    collect(
+      stub => stub.whenAnyRequest.thenRespondOk(),
+      backend =>
+        basicRequest
+          .post(uri)
+          .body(body)
+          .response {
+            asString.map[Either[String, String]] { _ =>
+              throw DeserializationException("Unknown body", new Exception("Unable to parse"))
+            }
+          }
+          .send(backend)
+          .attempt
+          .map { errorOrResponse =>
+            assertThrows[SttpClientException](errorOrResponse.toTry.get)
+          }
+    ).map { events =>
       val `body.length` = body.length.toDouble
 
       events.size shouldBe 5
@@ -144,8 +135,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
         case MetricEvent("sttp_requests_in_progress", "gauge", List("POST"), "dec", 1.0)                       => 4
         case MetricEvent("sttp_requests_failure_count", "counter", List("POST"), "inc", 1.0)                   => 5
       } shouldBe List(1, 2, 3, 4, 5)
-    }
-    test.run()
+    }.run()
   }
 
   test("configure prefix") {
