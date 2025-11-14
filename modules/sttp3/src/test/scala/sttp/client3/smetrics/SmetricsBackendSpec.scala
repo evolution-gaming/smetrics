@@ -52,16 +52,16 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
           ),
       backend => basicRequest.post(`/`).body(body).send(backend)
     ).map { events =>
-      val `html.length` = html.length.toDouble
-      val `body.length` = body.length.toDouble
+      val `rspSize` = html.length.toDouble
+      val `reqSize` = body.length.toDouble
 
       events.size shouldBe 6
       events.collect {
-        case MetricEvent("sttp_request_size_bytes", "summary", List("POST"), "observe", `body.length`)            => 1
+        case MetricEvent("sttp_request_size_bytes", "summary", List("POST"), "observe", `reqSize`)                => 1
         case MetricEvent("sttp_requests_in_progress", "gauge", List("POST"), "inc", 1.0)                          => 2
         case MetricEvent("sttp_request_latency_seconds", "histogram", List("POST"), "observe", `(0, 0.05]`(true)) => 3
         case MetricEvent("sttp_requests_in_progress", "gauge", List("POST"), "dec", 1.0)                          => 4
-        case MetricEvent("sttp_response_size_bytes", "summary", List("POST", "2xx"), "observe", `html.length`)    => 5
+        case MetricEvent("sttp_response_size_bytes", "summary", List("POST", "2xx"), "observe", `rspSize`)        => 5
         case MetricEvent("sttp_requests_success_count", "counter", List("POST", "2xx"), "inc", 1.0)               => 6
       } shouldBe List(1, 2, 3, 4, 5, 6)
     }.run()
@@ -74,36 +74,28 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
 
     def check(status: StatusCode) = {
 
-      val stubBackend = SttpBackendStub[IO, Any](sttp.monad.MonadError[IO]).whenAnyRequest
-        .thenRespond(
-          Response(
-            body = response,
-            code = status,
-          ).copy(headers = Seq(Header.contentLength(response.length.toLong)))
-        )
-
-      for {
-        registry          <- InMemoryCollectorRegistry.make
-        backendAllocated  <- SmetricsBackend(
-                               stubBackend,
-                               registry,
-                             ).allocated
-        (backend, release) = backendAllocated
-        _                 <- basicRequest.post(uri).body(body).send(backend)
-        events            <- registry.events
-        _                 <- release
-      } yield {
-        val `rsp.length`  = response.length.toDouble
-        val `body.length` = body.length.toDouble
-        val sts           = s"${status.code / 100}xx"
+      collect(
+        stub =>
+          stub.whenAnyRequest
+            .thenRespond(
+              Response(
+                body = response,
+                code = status,
+              ).withContentLength(response.length.toLong)
+            ),
+        backend => basicRequest.post(uri).body(body).send(backend)
+      ).map { events =>
+        val `rspSize` = response.length.toDouble
+        val `reqSize` = body.length.toDouble
+        val sts       = s"${status.code / 100}xx"
 
         events.size shouldBe 6
         events.collect {
-          case MetricEvent("sttp_request_size_bytes", "summary", List("POST"), "observe", `body.length`)            => 1
+          case MetricEvent("sttp_request_size_bytes", "summary", List("POST"), "observe", `reqSize`)                => 1
           case MetricEvent("sttp_requests_in_progress", "gauge", List("POST"), "inc", 1.0)                          => 2
           case MetricEvent("sttp_request_latency_seconds", "histogram", List("POST"), "observe", `(0, 0.05]`(true)) => 3
           case MetricEvent("sttp_requests_in_progress", "gauge", List("POST"), "dec", 1.0)                          => 4
-          case MetricEvent("sttp_response_size_bytes", "summary", List("POST", `sts`), "observe", `rsp.length`)     => 5
+          case MetricEvent("sttp_response_size_bytes", "summary", List("POST", `sts`), "observe", `rspSize`)        => 5
           case MetricEvent("sttp_requests_error_count", "counter", List("POST", `sts`), "inc", 1.0)                 => 6
         } shouldBe List(1, 2, 3, 4, 5, 6)
       }
