@@ -135,7 +135,6 @@ lazy val sttp3 = (project
     libraryDependencies ++= Seq(
       "com.softwaremill.sttp.client3" %% "core" % "3.9.0",
       "com.softwaremill.sttp.client3" %% "cats" % "3.9.0" % Test,
-      "com.lihaoyi" %% "pprint" % "0.8.1" % Test,
     )
   )
 )
