@@ -110,3 +110,9 @@ For prometheus version 1.x.x+ use `prometheus_v1` module:
 ```scala
 libraryDependencies += "com.evolutiongaming" %% "smetrics-prometheus-v1" % "0.3.1"
 ```
+
+For sttp3 use `smetrics-sttp3` module:
+
+```scala
+libraryDependencies += "com.evolutiongaming" %% "smetrics-sttp3" % "x.y.z"
+```
