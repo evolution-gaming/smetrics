@@ -146,6 +146,30 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
     }
     test.run()
   }
+
+  test("configure prefix") {
+    runIO {
+      val stubBackend = SttpBackendStub[IO, Any](sttp.monad.MonadError[IO]).whenAnyRequest.thenRespondOk()
+
+      for {
+        registry          <- InMemoryCollectorRegistry.make
+        backendAllocated  <- SmetricsBackend(
+                               stubBackend,
+                               registry,
+                               prefix = "prefix_",
+                             ).allocated
+        (backend, release) = backendAllocated
+        _                 <- basicRequest
+                               .get(uri"/")
+                               .send(backend)
+        events            <- registry.events
+        _                 <- release
+      } yield {
+        events.nonEmpty shouldBe true
+        events.forall(_.name.startsWith("prefix_")) shouldBe true
+      }
+    }
+  }
 }
 
 object SmetricsBackendSpec {
