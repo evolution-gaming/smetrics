@@ -18,32 +18,40 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
 
   private val `(0, 0.05]` = Within(0.00001, 0.05)
 
-  test("successful request") {
-    val body = "[]"
-    val html = "<html/>"
-    val uri  = uri"https://www.google.com"
-
-    val stubBackend = SttpBackendStub[IO, Any](sttp.monad.MonadError[IO]).whenAnyRequest
-      .thenRespond(
-        Response(
-          body = html,
-          code = StatusCode.Ok,
-          statusText = "OK",
-          headers = Seq(Header.contentLength(html.length.toLong)),
-        )
-      )
-
-    val test = for {
+  def collect[A](
+      stub: SttpBackendStub[IO, Any] => SttpBackendStub[IO, Any],
+      send: SttpBackend[IO, Any] => IO[A]
+  ): IO[Vector[MetricEvent]] = {
+    for {
       registry          <- InMemoryCollectorRegistry.make
       backendAllocated  <- SmetricsBackend(
-                             stubBackend,
+                             stub(SttpBackendStub[IO, Any](sttp.monad.MonadError[IO])),
                              registry,
                            ).allocated
       (backend, release) = backendAllocated
-      _                 <- basicRequest.post(uri).body(body).send(backend)
+      _                 <- send(backend)
       events            <- registry.events
       _                 <- release
-    } yield {
+    } yield events
+  }
+
+  val `/` = uri"/"
+
+  test("successful request") {
+    val body = "[]"
+    val html = "<html/>"
+
+    collect(
+      stub =>
+        stub.whenAnyRequest
+          .thenRespond(
+            Response(
+              body = html,
+              code = StatusCode.Ok,
+            ).withContentLength(html.length.toLong)
+          ),
+      backend => basicRequest.post(`/`).body(body).send(backend)
+    ).map { events =>
       val `html.length` = html.length.toDouble
       val `body.length` = body.length.toDouble
 
@@ -56,8 +64,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
         case MetricEvent("sttp_response_size_bytes", "summary", List("POST", "2xx"), "observe", `html.length`)    => 5
         case MetricEvent("sttp_requests_success_count", "counter", List("POST", "2xx"), "inc", 1.0)               => 6
       } shouldBe List(1, 2, 3, 4, 5, 6)
-    }
-    test.run()
+    }.run()
   }
 
   test("error request") {
@@ -88,7 +95,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
       } yield {
         val `rsp.length`  = response.length.toDouble
         val `body.length` = body.length.toDouble
-        val sts           = s"${status.code / 100}xy"
+        val sts           = s"${status.code / 100}xx"
 
         events.size shouldBe 6
         events.collect {
@@ -283,6 +290,11 @@ object SmetricsBackendSpec {
   case class Within(a: Double, b: Double) {
     def unapply(value: Double): Option[Boolean] =
       Some(value > a && value <= b)
+  }
+
+  implicit class ResponseOps[A](val response: Response[A]) extends AnyVal {
+    def withContentLength(length: Long): Response[A] =
+      response.copy(headers = response.headers :+ Header.contentLength(length))
   }
 
 }
