@@ -1,17 +1,12 @@
 package sttp.client3.smetrics
 
-// import cats._
-// import cats.syntax.all._
 import cats.effect._
 import org.scalatest.funsuite.AsyncFunSuite
-import sttp.client3.smetrics.SmetricsBackend.MetricNames
 import sttp.client3._
 import sttp.client3.smetrics.SmetricsBackendSpec._
 import sttp.client3.testing.SttpBackendStub
 import sttp.model.{Header, StatusCode}
-// import cats.effect.syntax.all._
 import com.evolutiongaming.smetrics._
-// import org.scalatest.funsuite.AnyFunSuiteLike
 import org.scalatest.matchers.should.Matchers
 import cats.effect.Ref
 import com.evolutiongaming.smetrics.IOSuite._
@@ -21,13 +16,14 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
 
   def inMemoryCollectorRegistry: CollectorRegistry[IO] = CollectorRegistry.empty[IO]
 
+  private val `(0, 0.05]` = Within(0.00001, 0.05)
+
   test("successful request") {
     val body = "[]"
     val html = "<html/>"
     val uri  = uri"https://www.google.com"
 
-    val stubBackend = SttpBackendStub[IO, Any](sttp.monad.MonadError[IO])
-      .whenRequestMatches(_ => true)
+    val stubBackend = SttpBackendStub[IO, Any](sttp.monad.MonadError[IO]).whenAnyRequest
       .thenRespond(
         Response(
           body = html,
@@ -48,7 +44,6 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
       events            <- registry.events
       _                 <- release
     } yield {
-      val `(0, 0.05]`   = Within(0.00001, 0.05)
       val `html.length` = html.length.toDouble
       val `body.length` = body.length.toDouble
 
@@ -61,6 +56,93 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
         case MetricEvent("sttp_response_size_bytes", "summary", List("POST", "2xx"), "observe", `html.length`)    => 5
         case MetricEvent("sttp_requests_success_count", "counter", List("POST", "2xx"), "inc", 1.0)               => 6
       } shouldBe List(1, 2, 3, 4, 5, 6)
+    }
+    test.run()
+  }
+
+  test("error request") {
+    val body     = "[]"
+    val response = "Not Found"
+    val uri      = uri"https://www.google.com"
+
+    val stubBackend = SttpBackendStub[IO, Any](sttp.monad.MonadError[IO])
+      .whenRequestMatches(_ => true)
+      .thenRespond(
+        Response(
+          body = response,
+          code = StatusCode.NotFound,
+          statusText = "Not Found",
+          headers = Seq(Header("Content-Length", response.length.toString)),
+        )
+      )
+
+    val test = for {
+      registry          <- InMemoryCollectorRegistry.make
+      backendAllocated  <- SmetricsBackend(
+                             stubBackend,
+                             registry,
+                           ).allocated
+      (backend, release) = backendAllocated
+      _                 <- basicRequest.post(uri).body(body).send(backend)
+      events            <- registry.events
+      _                 <- release
+    } yield {
+      val `response.length` = response.length.toDouble
+      val `body.length`     = body.length.toDouble
+
+      events.size shouldBe 6
+      events.collect {
+        case MetricEvent("sttp_request_size_bytes", "summary", List("POST"), "observe", `body.length`)             => 1
+        case MetricEvent("sttp_requests_in_progress", "gauge", List("POST"), "inc", 1.0)                           => 2
+        case MetricEvent("sttp_request_latency_seconds", "histogram", List("POST"), "observe", `(0, 0.05]`(true))  => 3
+        case MetricEvent("sttp_requests_in_progress", "gauge", List("POST"), "dec", 1.0)                           => 4
+        case MetricEvent("sttp_response_size_bytes", "summary", List("POST", "4xx"), "observe", `response.length`) => 5
+        case MetricEvent("sttp_requests_error_count", "counter", List("POST", "4xx"), "inc", 1.0)                  => 6
+      } shouldBe List(1, 2, 3, 4, 5, 6)
+    }
+    test.run()
+  }
+
+  test("failure request") {
+    val body = "[]"
+    val uri  = uri"/"
+
+    val stubBackend = SttpBackendStub[IO, Any](sttp.monad.MonadError[IO]).whenAnyRequest
+      .thenRespondOk()
+
+    val test = for {
+      registry          <- InMemoryCollectorRegistry.make
+      backendAllocated  <- SmetricsBackend(
+                             stubBackend,
+                             registry,
+                           ).allocated
+      (backend, release) = backendAllocated
+      _                 <- basicRequest
+                             .post(uri)
+                             .body(body)
+                             .response {
+                               asString.map[Either[String, String]] { _ =>
+                                 throw DeserializationException("Unknown body", new Exception("Unable to parse"))
+                               }
+                             }
+                             .send(backend)
+                             .attempt
+                             .map { errorOrResponse =>
+                               assertThrows[SttpClientException](errorOrResponse.toTry.get)
+                             }
+      events            <- registry.events
+      _                 <- release
+    } yield {
+      val `body.length` = body.length.toDouble
+
+      events.size shouldBe 5
+      events.collect {
+        case MetricEvent("sttp_request_size_bytes", "summary", List("POST"), "observe", `body.length`)            => 1
+        case MetricEvent("sttp_requests_in_progress", "gauge", List("POST"), "inc", 1.0)                          => 2
+        case MetricEvent("sttp_request_latency_seconds", "histogram", List("POST"), "observe", `(0, 0.05]`(true)) => 3
+        case MetricEvent("sttp_requests_in_progress", "gauge", List("POST"), "dec", 1.0)                          => 4
+        case MetricEvent("sttp_requests_failure_count", "counter", List("POST"), "inc", 1.0)                      => 5
+      } shouldBe List(1, 2, 3, 4, 5)
     }
     test.run()
   }
