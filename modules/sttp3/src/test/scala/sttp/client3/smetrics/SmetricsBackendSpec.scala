@@ -6,8 +6,9 @@ import cats.effect._
 import org.scalatest.funsuite.AsyncFunSuite
 import sttp.client3.smetrics.SmetricsBackend.MetricNames
 import sttp.client3._
+import sttp.client3.smetrics.SmetricsBackendSpec._
 import sttp.client3.testing.SttpBackendStub
-import sttp.model.{StatusCode, Header}
+import sttp.model.{Header, StatusCode}
 // import cats.effect.syntax.all._
 import com.evolutiongaming.smetrics._
 // import org.scalatest.funsuite.AnyFunSuiteLike
@@ -15,116 +16,6 @@ import org.scalatest.matchers.should.Matchers
 import cats.effect.Ref
 import com.evolutiongaming.smetrics.IOSuite._
 import sttp.client3.impl.cats.implicits._
-
-case class MetricEvent(name: String, metricType: String, labels: List[String], op: String, value: Double)
-
-class InMemoryCollectorRegistry(state: Ref[IO, Vector[MetricEvent]]) extends CollectorRegistry[IO] {
-
-  def events: IO[Vector[MetricEvent]] = state.get
-
-  private def record(name: String, metricType: String, labels: List[String], op: String, value: Double): IO[Unit] =
-    state.update(events => events :+ MetricEvent(name, metricType, labels, op, value))
-
-  override def counter[A, B[_]](
-      name: String,
-      help: String,
-      labels: A
-  )(implicit magnet: LabelsMagnet[A, B]): Resource[IO, B[Counter[IO]]] =
-    Resource.pure {
-      magnet.withValues { labelValues =>
-        new Counter[IO] {
-          override def inc(value: Double): IO[Unit] = record(name, "counter", labelValues, "inc", value)
-        }
-      }
-    }
-
-  override def counterInitialized[A, B[_]](
-      name: String,
-      help: String,
-      labels: A
-  )(implicit magnet: LabelsMagnetInitialized[A, B]): Resource[IO, B[Counter[IO]]] =
-    counter(name, help, labels)(magnet)
-
-  override def gauge[A, B[_]](
-      name: String,
-      help: String,
-      labels: A
-  )(implicit magnet: LabelsMagnet[A, B]): Resource[IO, B[Gauge[IO]]] =
-    Resource.pure {
-      magnet.withValues { labelValues =>
-        new Gauge[IO] {
-          override def set(value: Double): IO[Unit] = record(name, "gauge", labelValues, "set", value)
-
-          override def inc(value: Double): IO[Unit] = record(name, "gauge", labelValues, "inc", value)
-
-          override def dec(value: Double): IO[Unit] = record(name, "gauge", labelValues, "dec", value)
-        }
-      }
-    }
-
-  override def gaugeInitialized[A, B[_]](
-      name: String,
-      help: String,
-      labels: A
-  )(implicit magnet: LabelsMagnetInitialized[A, B]): Resource[IO, B[Gauge[IO]]] =
-    gauge(name, help, labels)(magnet)
-
-  override def histogram[A, B[_]](
-      name: String,
-      help: String,
-      buckets: Buckets,
-      labels: A
-  )(implicit magnet: LabelsMagnet[A, B]): Resource[IO, B[Histogram[IO]]] =
-    Resource.pure {
-      magnet.withValues { labelValues =>
-        new Histogram[IO] {
-          override def observe(value: Double): IO[Unit] = record(name, "histogram", labelValues, "observe", value)
-        }
-      }
-    }
-
-  override def histogramInitialized[A, B[_]](
-      name: String,
-      help: String,
-      buckets: Buckets,
-      labels: A
-  )(implicit magnet: LabelsMagnetInitialized[A, B]): Resource[IO, B[Histogram[IO]]] =
-    histogram(name, help, buckets, labels)(magnet)
-
-  override def summary[A, B[_]](
-      name: String,
-      help: String,
-      quantiles: Quantiles,
-      labels: A
-  )(implicit magnet: LabelsMagnet[A, B]): Resource[IO, B[Summary[IO]]] =
-    Resource.pure {
-      magnet.withValues { labelValues =>
-        new Summary[IO] {
-          override def observe(value: Double): IO[Unit] = record(name, "summary", labelValues, "observe", value)
-        }
-      }
-    }
-
-  override def summaryInitialized[A, B[_]](
-      name: String,
-      help: String,
-      quantiles: Quantiles,
-      labels: A
-  )(implicit magnet: LabelsMagnetInitialized[A, B]): Resource[IO, B[Summary[IO]]] =
-    summary(name, help, quantiles, labels)(magnet)
-}
-
-object InMemoryCollectorRegistry {
-  def make: IO[InMemoryCollectorRegistry] =
-    for {
-      ref <- Ref.of[IO, Vector[MetricEvent]](Vector.empty)
-    } yield new InMemoryCollectorRegistry(ref)
-}
-
-case class Within(a: Double, b: Double) {
-  def unapply(value: Double): Option[Boolean] =
-    Some(value > a && value <= b)
-}
 
 class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
 
@@ -173,4 +64,117 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
     }
     test.run()
   }
+}
+
+object SmetricsBackendSpec {
+  case class MetricEvent(name: String, metricType: String, labels: List[String], op: String, value: Double)
+
+  class InMemoryCollectorRegistry(state: Ref[IO, Vector[MetricEvent]]) extends CollectorRegistry[IO] {
+
+    def events: IO[Vector[MetricEvent]] = state.get
+
+    private def record(name: String, metricType: String, labels: List[String], op: String, value: Double): IO[Unit] =
+      state.update(events => events :+ MetricEvent(name, metricType, labels, op, value))
+
+    override def counter[A, B[_]](
+        name: String,
+        help: String,
+        labels: A
+    )(implicit magnet: LabelsMagnet[A, B]): Resource[IO, B[Counter[IO]]] =
+      Resource.pure {
+        magnet.withValues { labelValues =>
+          new Counter[IO] {
+            override def inc(value: Double): IO[Unit] = record(name, "counter", labelValues, "inc", value)
+          }
+        }
+      }
+
+    override def counterInitialized[A, B[_]](
+        name: String,
+        help: String,
+        labels: A
+    )(implicit magnet: LabelsMagnetInitialized[A, B]): Resource[IO, B[Counter[IO]]] =
+      counter(name, help, labels)(magnet)
+
+    override def gauge[A, B[_]](
+        name: String,
+        help: String,
+        labels: A
+    )(implicit magnet: LabelsMagnet[A, B]): Resource[IO, B[Gauge[IO]]] =
+      Resource.pure {
+        magnet.withValues { labelValues =>
+          new Gauge[IO] {
+            override def set(value: Double): IO[Unit] = record(name, "gauge", labelValues, "set", value)
+
+            override def inc(value: Double): IO[Unit] = record(name, "gauge", labelValues, "inc", value)
+
+            override def dec(value: Double): IO[Unit] = record(name, "gauge", labelValues, "dec", value)
+          }
+        }
+      }
+
+    override def gaugeInitialized[A, B[_]](
+        name: String,
+        help: String,
+        labels: A
+    )(implicit magnet: LabelsMagnetInitialized[A, B]): Resource[IO, B[Gauge[IO]]] =
+      gauge(name, help, labels)(magnet)
+
+    override def histogram[A, B[_]](
+        name: String,
+        help: String,
+        buckets: Buckets,
+        labels: A
+    )(implicit magnet: LabelsMagnet[A, B]): Resource[IO, B[Histogram[IO]]] =
+      Resource.pure {
+        magnet.withValues { labelValues =>
+          new Histogram[IO] {
+            override def observe(value: Double): IO[Unit] = record(name, "histogram", labelValues, "observe", value)
+          }
+        }
+      }
+
+    override def histogramInitialized[A, B[_]](
+        name: String,
+        help: String,
+        buckets: Buckets,
+        labels: A
+    )(implicit magnet: LabelsMagnetInitialized[A, B]): Resource[IO, B[Histogram[IO]]] =
+      histogram(name, help, buckets, labels)(magnet)
+
+    override def summary[A, B[_]](
+        name: String,
+        help: String,
+        quantiles: Quantiles,
+        labels: A
+    )(implicit magnet: LabelsMagnet[A, B]): Resource[IO, B[Summary[IO]]] =
+      Resource.pure {
+        magnet.withValues { labelValues =>
+          new Summary[IO] {
+            override def observe(value: Double): IO[Unit] = record(name, "summary", labelValues, "observe", value)
+          }
+        }
+      }
+
+    override def summaryInitialized[A, B[_]](
+        name: String,
+        help: String,
+        quantiles: Quantiles,
+        labels: A
+    )(implicit magnet: LabelsMagnetInitialized[A, B]): Resource[IO, B[Summary[IO]]] =
+      summary(name, help, quantiles, labels)(magnet)
+  }
+
+  object InMemoryCollectorRegistry {
+    def make: IO[InMemoryCollectorRegistry] =
+      for {
+        ref <- Ref.of[IO, Vector[MetricEvent]](Vector.empty)
+      } yield new InMemoryCollectorRegistry(ref)
+  }
+
+  case class Within(a: Double, b: Double) {
+    def unapply(value: Double): Option[Boolean] =
+      Some(value > a && value <= b)
+  }
+
 }
