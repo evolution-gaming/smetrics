@@ -7,7 +7,7 @@ import org.scalatest.funsuite.AsyncFunSuite
 import sttp.client3.smetrics.SmetricsBackend.MetricNames
 import sttp.client3._
 import sttp.client3.testing.SttpBackendStub
-import sttp.model.StatusCode
+import sttp.model.{StatusCode, Header}
 // import cats.effect.syntax.all._
 import com.evolutiongaming.smetrics._
 // import org.scalatest.funsuite.AnyFunSuiteLike
@@ -121,11 +121,16 @@ object InMemoryCollectorRegistry {
     } yield new InMemoryCollectorRegistry(ref)
 }
 
+case class Within(a: Double, b: Double) {
+  def unapply(value: Double): Option[Boolean] =
+    Some(value > a && value <= b)
+}
+
 class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
 
   def inMemoryCollectorRegistry: CollectorRegistry[IO] = CollectorRegistry.empty[IO]
 
-  test("SmetricsBackend updates latency, in-progress, request size, response size for successful request") {
+  test("successful request") {
     val body = "[]"
     val html = "<html/>"
     val uri  = uri"https://www.google.com"
@@ -137,7 +142,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
           body = html,
           code = StatusCode.Ok,
           statusText = "OK",
-          headers = Seq(sttp.model.Header("Content-Length", html.length.toString)),
+          headers = Seq(Header("Content-Length", html.length.toString)),
         )
       )
 
@@ -152,73 +157,19 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
       events            <- registry.events
       _                 <- release
     } yield {
+      val `(0, 0.05]`   = Within(0.00001, 0.05)
+      val `html.length` = html.length.toDouble
+      val `body.length` = body.length.toDouble
+
       events.size shouldBe 6
-      // Check latency metric
-      events.exists(e =>
-        e.name == MetricNames.latency() && e.metricType == "histogram" && e.op == "observe"
-      ) shouldBe true
-      // Check in-progress gauge inc/dec
-      events.exists(e =>
-        e.name == MetricNames.inProgress() && e.metricType == "gauge" && e.op == "inc" && e.value == 1.0d
-      ) shouldBe true
-      events.exists(e =>
-        e.name == MetricNames.inProgress() && e.metricType == "gauge" && e.op == "dec" && e.value == 1.0d
-      ) shouldBe true
-      // Check request size summary
-      events.exists(e =>
-        e.name == MetricNames
-          .requestSize() && e.metricType == "summary" && e.op == "observe" && e.value == body.length
-      ) shouldBe true
-      // Check response size summary
-      events.exists(e =>
-        e.name == MetricNames
-          .responseSize() && e.metricType == "summary" && e.op == "observe" && e.value == html.length
-      ) shouldBe true
-      pprint.pprintln(events)
-      // val events1 = Vector(
-      //   MetricEvent(
-      //     name = "sttp_request_size_bytes",
-      //     metricType = "summary",
-      //     labels = List("POST"),
-      //     op = "observe",
-      //     value = 2.0
-      //   ),
-      //   MetricEvent(
-      //     name = "sttp_requests_in_progress",
-      //     metricType = "gauge",
-      //     labels = List("POST"),
-      //     op = "inc",
-      //     value = 1.0
-      //   ),
-      //   MetricEvent(
-      //     name = "sttp_request_latency_seconds",
-      //     metricType = "histogram",
-      //     labels = List("POST"),
-      //     op = "observe",
-      //     value = 0.004486334
-      //   ),
-      //   MetricEvent(
-      //     name = "sttp_requests_in_progress",
-      //     metricType = "gauge",
-      //     labels = List("POST"),
-      //     op = "dec",
-      //     value = 1.0
-      //   ),
-      //   MetricEvent(
-      //     name = "sttp_response_size_bytes",
-      //     metricType = "summary",
-      //     labels = List("POST", "2xx"),
-      //     op = "observe",
-      //     value = 7.0
-      //   ),
-      //   MetricEvent(
-      //     name = "sttp_requests_success_count",
-      //     metricType = "counter",
-      //     labels = List("POST", "2xx"),
-      //     op = "inc",
-      //     value = 1.0
-      //   )
-      // )
+      events.collect {
+        case MetricEvent("sttp_request_size_bytes", "summary", List("POST"), "observe", `body.length`)            => 1
+        case MetricEvent("sttp_requests_in_progress", "gauge", List("POST"), "inc", 1.0)                          => 2
+        case MetricEvent("sttp_request_latency_seconds", "histogram", List("POST"), "observe", `(0, 0.05]`(true)) => 3
+        case MetricEvent("sttp_requests_in_progress", "gauge", List("POST"), "dec", 1.0)                          => 4
+        case MetricEvent("sttp_response_size_bytes", "summary", List("POST", "2xx"), "observe", `html.length`)    => 5
+        case MetricEvent("sttp_requests_success_count", "counter", List("POST", "2xx"), "inc", 1.0)               => 6
+      } shouldBe List(1, 2, 3, 4, 5, 6)
     }
     test.run()
   }
