@@ -29,7 +29,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
           body = html,
           code = StatusCode.Ok,
           statusText = "OK",
-          headers = Seq(Header("Content-Length", html.length.toString)),
+          headers = Seq(Header.contentLength(html.length.toLong)),
         )
       )
 
@@ -72,7 +72,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
           body = response,
           code = StatusCode.NotFound,
           statusText = "Not Found",
-          headers = Seq(Header("Content-Length", response.length.toString)),
+          headers = Seq(Header.contentLength(response.length.toLong)),
         )
       )
 
