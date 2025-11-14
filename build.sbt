@@ -133,8 +133,8 @@ lazy val sttp3 = (project
   settings(
     name := "smetrics-sttp3",
     libraryDependencies ++= Seq(
-      "com.softwaremill.sttp.client3" %% "core" % "3.9.0",
-      "com.softwaremill.sttp.client3" %% "cats" % "3.9.0" % Test,
+      "com.softwaremill.sttp.client3" %% "core" % "3.11.0",
+      "com.softwaremill.sttp.client3" %% "cats" % "3.11.0" % Test,
     )
   )
 )
