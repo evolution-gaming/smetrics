@@ -27,21 +27,13 @@ import com.evolutiongaming.smetrics._
   * {{{
   * import cats.effect.IO
   * import sttp.client3._
-  * import sttp.client3.httpclient.cats.HttpClientCatsBackend
   * import sttp.client3.smetrics.SmetricsBackend
   * import com.evolutiongaming.smetrics.CollectorRegistry
   *
-  * val program = for {
-  *   backend  <- HttpClientCatsBackend.resource[IO]()
-  *   registry <- CollectorRegistry.empty[IO] // Or use a Prometheus registry
-  *   metricsBackend <- SmetricsBackend(backend, registry)
-  * } yield metricsBackend
+  * val backend: SttpBackend[IO, Any] = ???
+  * val registry: CollectorRegistry[IO] = ???
   *
-  * program.use { backend =>
-  *   basicRequest
-  *     .get(uri"https://api.example.com/users")
-  *     .send(backend)
-  * }
+  * SmetricsBackend(backend, registry).use { backend => ??? }
   * }}}
   *
   * ==Custom Metric Prefixes==
@@ -135,29 +127,31 @@ object SmetricsBackend {
     */
   val DefaultBuckets: List[Double] = List(.005, .01, .025, .05, .075, .1, .25, .5, .75, 1, 2.5, 5, 7.5, 10)
 
-  /**
-   * Returns the HTTP method label for a request, used for metric labeling.
-   *
-   * @param req The STTP request
-   * @return The HTTP method in uppercase (e.g., "GET", "POST")
-   */
+  /** Returns the HTTP method label for a request, used for metric labeling.
+    *
+    * @param req
+    *   The STTP request
+    * @return
+    *   The HTTP method in uppercase (e.g., "GET", "POST")
+    */
   def methodLabel(req: Request[_, _]): String = req.method.method.toUpperCase
 
-  /**
-   * Returns the status label for a response, used for metric labeling.
-   *
-   * Maps the HTTP status code to a category string:
-   *   - "1xx" for informational responses
-   *   - "2xx" for successful responses
-   *   - "3xx" for redirects
-   *   - "4xx" for client errors
-   *   - "5xx" for server errors
-   *   - Otherwise, returns the numeric status code as a string
-   *
-   * @param rsp The STTP response
-   * @return The status label string (e.g., "2xx", "404")
-   */
-  def statusLabel(rsp: Response[_]): String   = {
+  /** Returns the status label for a response, used for metric labeling.
+    *
+    * Maps the HTTP status code to a category string:
+    *   - "1xx" for informational responses
+    *   - "2xx" for successful responses
+    *   - "3xx" for redirects
+    *   - "4xx" for client errors
+    *   - "5xx" for server errors
+    *   - Otherwise, returns the numeric status code as a string
+    *
+    * @param rsp
+    *   The STTP response
+    * @return
+    *   The status label string (e.g., "2xx", "404")
+    */
+  def statusLabel(rsp: Response[_]): String = {
     val code = rsp.code
     if (code.isInformational) "1xx"
     else if (code.isSuccess) "2xx"
