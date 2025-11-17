@@ -27,7 +27,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
   ): IO[Vector[MetricEvent]] = {
     for {
       registry          <- InMemoryCollectorRegistry.make
-      backendAllocated  <- SmetricsBackend(
+      backendAllocated  <- SmetricsBackend.default(
                              stub(SttpBackendStub[IO, Any](sttp.monad.MonadError[IO])),
                              registry,
                            ).allocated
@@ -141,7 +141,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
 
       for {
         registry          <- InMemoryCollectorRegistry.make
-        backendAllocated  <- SmetricsBackend(
+        backendAllocated  <- SmetricsBackend.default(
                                stubBackend,
                                registry,
                                prefix = "prefix_",

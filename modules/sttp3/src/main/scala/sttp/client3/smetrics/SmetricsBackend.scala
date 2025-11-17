@@ -33,7 +33,7 @@ import com.evolutiongaming.smetrics._
   * val backend: SttpBackend[IO, Any] = ???
   * val registry: CollectorRegistry[IO] = ???
   *
-  * SmetricsBackend(backend, registry).use { backend => ??? }
+  * SmetricsBackend.default(backend, registry).use { backend => ??? }
   * }}}
   *
   * ==Custom Metric Prefixes==
@@ -238,7 +238,7 @@ object SmetricsBackend {
     * val backend: SttpBackend[IO, Any] = ???
     * val registry: CollectorRegistry[IO] = ???
     *
-    * SmetricsBackend(backend, registry, prefix = "myapp_").use { metricsBackend =>
+    * SmetricsBackend.default(backend, registry, prefix = "myapp_").use { metricsBackend =>
     *   basicRequest
     *     .get(uri"https://api.example.com/users")
     *     .send(metricsBackend)
@@ -258,7 +258,7 @@ object SmetricsBackend {
     * @return
     *   A Resource that manages the metrics-enabled backend lifecycle
     */
-  def apply[F[_]: Clock: Monad, P](
+  def default[F[_]: Clock: Monad, P](
       delegate: SttpBackend[F, P],
       collectorRegistry: CollectorRegistry[F],
       prefix: String = MetricNames.DefaultPrefix,
