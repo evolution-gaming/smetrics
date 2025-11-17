@@ -228,6 +228,11 @@ object SmetricsBackend {
     *
     * The backend returns a Resource that properly manages the lifecycle of the metrics.
     *
+    * There is a difference between PrometheusBackend and SmetricsBackend such that PrometheusBackend uses metrics
+    * caching per collector registry per metrics name and type, while SmetricsBackend creates new metrics each time it
+    * is called. So if you want to have caching behavior you need to use [[CollectorRegistry.withCaching]] when creating
+    * SmetricsBackend. Or use uniq prefix to avoid conflicts.
+    *
     * Example usage:
     * {{{
     * import cats.effect.IO
