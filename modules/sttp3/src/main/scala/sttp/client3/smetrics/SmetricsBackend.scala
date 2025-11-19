@@ -98,29 +98,26 @@ object SmetricsBackend {
     */
   object MetricNames {
 
-    /** Default prefix for all metrics */
-    val DefaultPrefix = "sttp_"
-
     /** Metric name for request latency histogram */
-    def latency(prefix: String = DefaultPrefix): String = s"${prefix}request_latency_seconds"
+    val latency: String = "sttp_request_latency_seconds"
 
     /** Metric name for requests in progress gauge */
-    def inProgress(prefix: String = DefaultPrefix): String = s"${prefix}requests_in_progress"
+    val inProgress: String = "sttp_requests_in_progress"
 
     /** Metric name for successful requests counter */
-    def success(prefix: String = DefaultPrefix): String = s"${prefix}requests_success_count"
+    val success: String = "sttp_requests_success_count"
 
     /** Metric name for errored requests counter */
-    def error(prefix: String = DefaultPrefix): String = s"${prefix}requests_error_count"
+    val error: String = "sttp_requests_error_count"
 
     /** Metric name for failed requests counter */
-    def failure(prefix: String = DefaultPrefix): String = s"${prefix}requests_failure_count"
+    val failure: String = "sttp_requests_failure_count"
 
     /** Metric name for request size summary */
-    def requestSize(prefix: String = DefaultPrefix): String = s"${prefix}request_size_bytes"
+    val requestSize: String = "sttp_request_size_bytes"
 
     /** Metric name for response size summary */
-    def responseSize(prefix: String = DefaultPrefix): String = s"${prefix}response_size_bytes"
+    val responseSize: String = "sttp_response_size_bytes"
   }
 
   /** Default histogram buckets for latency measurements in seconds. Covers common response times from 5ms to 10s.
@@ -266,43 +263,51 @@ object SmetricsBackend {
   def default[F[_]: Clock: Monad, P](
       delegate: SttpBackend[F, P],
       collectorRegistry: CollectorRegistry[F],
-      prefix: String = MetricNames.DefaultPrefix,
+      prefix: Option[String] = None
   ): Resource[F, SttpBackend[F, P]] = {
+    val registry = prefix.fold(collectorRegistry)(collectorRegistry.prefixed(_))
+    makeDefault(delegate, registry)
+  }
+
+  private def makeDefault[F[_]: Clock: Monad, P](
+      delegate: SttpBackend[F, P],
+      collectorRegistry: CollectorRegistry[F],
+  ): Resource[F, SttpBackend[F, P]] =
     for {
       latency      <- collectorRegistry.histogram(
-                        name = MetricNames.latency(prefix),
+                        name = MetricNames.latency,
                         help = "Request latency in seconds",
                         buckets = Buckets(NonEmptyList.fromListUnsafe(DefaultBuckets)),
                         labels = LabelNames("method")
                       )
       inProgress   <- collectorRegistry.gauge(
-                        name = MetricNames.inProgress(prefix),
+                        name = MetricNames.inProgress,
                         help = "Number of requests in progress",
                         labels = LabelNames("method")
                       )
       success      <- collectorRegistry.counter(
-                        name = MetricNames.success(prefix),
+                        name = MetricNames.success,
                         help = "Number of successful requests",
                         labels = LabelNames("method", "status")
                       )
       error        <- collectorRegistry.counter(
-                        name = MetricNames.error(prefix),
+                        name = MetricNames.error,
                         help = "Number of errored requests",
                         labels = LabelNames("method", "status")
                       )
       failure      <- collectorRegistry.counter(
-                        name = MetricNames.failure(prefix),
+                        name = MetricNames.failure,
                         help = "Number of failed requests",
                         labels = LabelNames("method")
                       )
       requestSize  <- collectorRegistry.summary(
-                        name = MetricNames.requestSize(prefix),
+                        name = MetricNames.requestSize,
                         help = "Request size in bytes",
                         labels = LabelNames("method"),
                         quantiles = Quantiles.Default
                       )
       responseSize <- collectorRegistry.summary(
-                        name = MetricNames.responseSize(prefix),
+                        name = MetricNames.responseSize,
                         help = "Response size in bytes",
                         labels = LabelNames("method", "status"),
                         quantiles = Quantiles.Default
@@ -324,7 +329,6 @@ object SmetricsBackend {
         )
       )
     }
-  }
 
   /** Internal state passed between request lifecycle hooks.
     *

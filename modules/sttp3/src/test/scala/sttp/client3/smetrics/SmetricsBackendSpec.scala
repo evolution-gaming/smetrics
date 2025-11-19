@@ -27,10 +27,12 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
   ): IO[Vector[MetricEvent]] = {
     for {
       registry          <- InMemoryCollectorRegistry.make
-      backendAllocated  <- SmetricsBackend.default(
-                             stub(SttpBackendStub[IO, Any](sttp.monad.MonadError[IO])),
-                             registry,
-                           ).allocated
+      backendAllocated  <- SmetricsBackend
+                             .default(
+                               stub(SttpBackendStub[IO, Any](sttp.monad.MonadError[IO])),
+                               registry,
+                             )
+                             .allocated
       (backend, release) = backendAllocated
       _                 <- send(backend)
       events            <- registry.events
@@ -141,11 +143,13 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
 
       for {
         registry          <- InMemoryCollectorRegistry.make
-        backendAllocated  <- SmetricsBackend.default(
-                               stubBackend,
-                               registry,
-                               prefix = "prefix_",
-                             ).allocated
+        backendAllocated  <- SmetricsBackend
+                               .default(
+                                 stubBackend,
+                                 registry,
+                                 prefix = Some("prefix_"),
+                               )
+                               .allocated
         (backend, release) = backendAllocated
         _                 <- basicRequest
                                .get(uri"/")
@@ -178,39 +182,39 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
       val resource = for {
         registry     <- InMemoryCollectorRegistry.make.toResource
         latency      <- registry.histogram(
-                          name = MetricNames.latency(prefix),
+                          name = s"$prefix${MetricNames.latency}",
                           help = "Request latency in seconds",
                           buckets = Buckets(NonEmptyList.fromListUnsafe(DefaultBuckets)),
                           labels = LabelNames("method", "backend", "resource")
                         )
         inProgress   <- registry.gauge(
-                          name = MetricNames.inProgress(prefix),
+                          name = s"$prefix${MetricNames.inProgress}",
                           help = "Number of requests in progress",
                           labels = LabelNames("method", "backend", "resource")
                         )
         success      <- registry.counter(
-                          name = MetricNames.success(prefix),
+                          name = s"$prefix${MetricNames.success}",
                           help = "Number of successful requests",
                           labels = LabelNames("method", "status", "backend", "resource")
                         )
         error        <- registry.counter(
-                          name = MetricNames.error(prefix),
+                          name = s"$prefix${MetricNames.error}",
                           help = "Number of errored requests",
                           labels = LabelNames("method", "status", "backend", "resource")
                         )
         failure      <- registry.counter(
-                          name = MetricNames.failure(prefix),
+                          name = s"$prefix${MetricNames.failure}",
                           help = "Number of failed requests",
                           labels = LabelNames("method", "backend", "resource")
                         )
         requestSize  <- registry.summary(
-                          name = MetricNames.requestSize(prefix),
+                          name = s"$prefix${MetricNames.requestSize}",
                           help = "Request size in bytes",
                           labels = LabelNames("method", "backend", "resource"),
                           quantiles = Quantiles.Default
                         )
         responseSize <- registry.summary(
-                          name = MetricNames.responseSize(prefix),
+                          name = s"$prefix${MetricNames.responseSize}",
                           help = "Response size in bytes",
                           labels = LabelNames("method", "status", "backend", "resource"),
                           quantiles = Quantiles.Default
@@ -256,25 +260,25 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
           events.size shouldBe 6
           events.collect {
             case MetricEvent(
-                  "client_request_size_bytes",
+                  "client_sttp_request_size_bytes",
                   "summary",
                   List("POST", "primary", "users"),
                   "observe",
                   2.0
                 ) =>
               1
-            case MetricEvent("client_requests_in_progress", "gauge", List("POST", "primary", "users"), "inc", 1.0) => 2
+            case MetricEvent("client_sttp_requests_in_progress", "gauge", List("POST", "primary", "users"), "inc", 1.0) => 2
             case MetricEvent(
-                  "client_request_latency_seconds",
+                  "client_sttp_request_latency_seconds",
                   "histogram",
                   List("POST", "primary", "users"),
                   "observe",
                   `(0, 0.05]`(_)
                 ) =>
               3
-            case MetricEvent("client_requests_in_progress", "gauge", List("POST", "primary", "users"), "dec", 1.0) => 4
+            case MetricEvent("client_sttp_requests_in_progress", "gauge", List("POST", "primary", "users"), "dec", 1.0) => 4
             case MetricEvent(
-                  "client_response_size_bytes",
+                  "client_sttp_response_size_bytes",
                   "summary",
                   List("POST", "2xx", "primary", "users"),
                   "observe",
@@ -282,7 +286,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
                 ) =>
               5
             case MetricEvent(
-                  "client_requests_success_count",
+                  "client_sttp_requests_success_count",
                   "counter",
                   List("POST", "2xx", "primary", "users"),
                   "inc",
