@@ -36,7 +36,7 @@ lazy val root = (project
     publish / skip := true,
     name := "smetrics-parent"
   )
-  aggregate(smetrics, prometheus, http4s, doobie, prometheus_v1, logback))
+  aggregate(smetrics, prometheus, http4s, doobie, prometheus_v1, logback, sttp3))
 
 lazy val smetrics = (project
   in file("smetrics")
@@ -123,5 +123,18 @@ lazy val doobie = (project
   libraryDependencies ++= Seq(
     Dependencies.doobie,
     `cats-helper`)
+  )
+)
+
+lazy val sttp3 = (project
+  in file("modules/sttp3")
+  settings commonSettings
+  dependsOn(smetrics % "compile->compile;test->test")
+  settings(
+    name := "smetrics-sttp3",
+    libraryDependencies ++= Seq(
+      "com.softwaremill.sttp.client3" %% "core" % "3.11.0",
+      "com.softwaremill.sttp.client3" %% "cats" % "3.11.0" % Test,
+    )
   )
 )
