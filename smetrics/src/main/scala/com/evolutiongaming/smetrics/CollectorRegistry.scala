@@ -8,67 +8,36 @@ import com.evolutiongaming.catshelper.{ResourceCounter, SerialRef}
 
 trait CollectorRegistry[F[_]] {
 
-  def gauge[A, B[_]](
-    name: String,
-    help: String,
-    labels: A)(implicit
-    magnet: LabelsMagnet[A, B]
+  def gauge[A, B[_]](name: String, help: String, labels: A)(implicit
+      magnet: LabelsMagnet[A, B]
   ): Resource[F, B[Gauge[F]]]
 
-  def gaugeInitialized[A, B[_]](
-    name: String,
-    help: String,
-    labels: A)(implicit
-    magnet: LabelsMagnetInitialized[A, B]
+  def gaugeInitialized[A, B[_]](name: String, help: String, labels: A)(implicit
+      magnet: LabelsMagnetInitialized[A, B]
   ): Resource[F, B[Gauge[F]]]
 
-
-  def counter[A, B[_]](
-    name: String,
-    help: String,
-    labels: A)(implicit
-    magnet: LabelsMagnet[A, B]
+  def counter[A, B[_]](name: String, help: String, labels: A)(implicit
+      magnet: LabelsMagnet[A, B]
   ): Resource[F, B[Counter[F]]]
 
-  def counterInitialized[A, B[_]](
-    name: String,
-    help: String,
-    labels: A)(implicit
-    magnet: LabelsMagnetInitialized[A, B]
+  def counterInitialized[A, B[_]](name: String, help: String, labels: A)(implicit
+      magnet: LabelsMagnetInitialized[A, B]
   ): Resource[F, B[Counter[F]]]
 
-
-  def summary[A, B[_]](
-    name: String,
-    help: String,
-    quantiles: Quantiles,
-    labels: A)(implicit
-    magnet: LabelsMagnet[A, B]
+  def summary[A, B[_]](name: String, help: String, quantiles: Quantiles, labels: A)(implicit
+      magnet: LabelsMagnet[A, B]
   ): Resource[F, B[Summary[F]]]
 
-  def summaryInitialized[A, B[_]](
-    name: String,
-    help: String,
-    quantiles: Quantiles,
-    labels: A)(implicit
-    magnet: LabelsMagnetInitialized[A, B]
+  def summaryInitialized[A, B[_]](name: String, help: String, quantiles: Quantiles, labels: A)(implicit
+      magnet: LabelsMagnetInitialized[A, B]
   ): Resource[F, B[Summary[F]]]
 
-
-  def histogram[A, B[_]](
-    name: String,
-    help: String,
-    buckets: Buckets,
-    labels: A)(implicit
-    magnet: LabelsMagnet[A, B]
+  def histogram[A, B[_]](name: String, help: String, buckets: Buckets, labels: A)(implicit
+      magnet: LabelsMagnet[A, B]
   ): Resource[F, B[Histogram[F]]]
 
-  def histogramInitialized[A, B[_]](
-    name: String,
-    help: String,
-    buckets: Buckets,
-    labels: A)(implicit
-    magnet: LabelsMagnetInitialized[A, B]
+  def histogramInitialized[A, B[_]](name: String, help: String, buckets: Buckets, labels: A)(implicit
+      magnet: LabelsMagnetInitialized[A, B]
   ): Resource[F, B[Histogram[F]]]
 
   def prefixed(prefix: String): CollectorRegistry[F] = new CollectorRegistry.Prefixed[F](this, prefix)
@@ -81,19 +50,15 @@ trait CollectorRegistry[F[_]] {
 
 object CollectorRegistry {
 
-  def empty[F[_] : Monad]: CollectorRegistry[F] = {
-    const[F](
-      Gauge.empty[F].pure[F],
-      Counter.empty[F].pure[F],
-      Summary.empty[F].pure[F],
-      Histogram.empty[F].pure[F])
+  def empty[F[_]: Monad]: CollectorRegistry[F] = {
+    const[F](Gauge.empty[F].pure[F], Counter.empty[F].pure[F], Summary.empty[F].pure[F], Histogram.empty[F].pure[F])
   }
 
-  def const[F[_] : Monad](
-    gauge: F[Gauge[F]],
-    counter: F[Counter[F]],
-    summary: F[Summary[F]],
-    histogram: F[Histogram[F]]
+  def const[F[_]: Monad](
+      gauge: F[Gauge[F]],
+      counter: F[Counter[F]],
+      summary: F[Summary[F]],
+      histogram: F[Histogram[F]]
   ): CollectorRegistry[F] = {
 
     val gauge1 = gauge
@@ -115,78 +80,50 @@ object CollectorRegistry {
 
     new CollectorRegistry[F] {
 
-      def gauge[A, B[_]](
-        name: String,
-        help: String,
-        labels: A)(implicit
-        magnet: LabelsMagnet[A, B]
+      def gauge[A, B[_]](name: String, help: String, labels: A)(implicit
+          magnet: LabelsMagnet[A, B]
       ) = {
         apply(gauge1)
       }
 
-      def gaugeInitialized[A, B[_]](
-        name: String,
-        help: String,
-        labels: A)(implicit
-        magnet: LabelsMagnetInitialized[A, B]
+      def gaugeInitialized[A, B[_]](name: String, help: String, labels: A)(implicit
+          magnet: LabelsMagnetInitialized[A, B]
       ) = {
         apply(gauge1)
       }
 
-      def counter[A, B[_]](
-        name: String,
-        help: String,
-        labels: A)(implicit
-        magnet: LabelsMagnet[A, B]
+      def counter[A, B[_]](name: String, help: String, labels: A)(implicit
+          magnet: LabelsMagnet[A, B]
       ) = {
         apply(counter1)
       }
 
-      def counterInitialized[A, B[_]](
-        name: String,
-        help: String,
-        labels: A)(implicit
-        magnet: LabelsMagnetInitialized[A, B]
+      def counterInitialized[A, B[_]](name: String, help: String, labels: A)(implicit
+          magnet: LabelsMagnetInitialized[A, B]
       ) = {
         apply(counter1)
       }
 
-      def summary[A, B[_]](
-        name: String,
-        help: String,
-        quantiles: Quantiles,
-        labels: A)(implicit
-        magnet: LabelsMagnet[A, B]
+      def summary[A, B[_]](name: String, help: String, quantiles: Quantiles, labels: A)(implicit
+          magnet: LabelsMagnet[A, B]
       ) = {
         apply(summary1)
       }
 
-      def summaryInitialized[A, B[_]](
-        name: String,
-        help: String,
-        quantiles: Quantiles,
-        labels: A)(implicit
-        magnet: LabelsMagnetInitialized[A, B]
+      def summaryInitialized[A, B[_]](name: String, help: String, quantiles: Quantiles, labels: A)(implicit
+          magnet: LabelsMagnetInitialized[A, B]
       ) = {
         apply(summary1)
       }
 
-      def histogram[A, B[_]](
-        name: String,
-        help: String,
-        buckets: Buckets,
-        labels: A)(implicit
-        magnet: LabelsMagnet[A, B]
+      def histogram[A, B[_]](name: String, help: String, buckets: Buckets, labels: A)(implicit
+          magnet: LabelsMagnet[A, B]
       ) = {
         apply(histogram1)
       }
 
-      def histogramInitialized[A, B[_]](
-        name: String,
-        help: String,
-        buckets: Buckets,
-        labels: A)(implicit
-        magnet: LabelsMagnetInitialized[A, B]
+      def histogramInitialized[A, B[_]](name: String, help: String, buckets: Buckets, labels: A)(implicit
+          magnet: LabelsMagnetInitialized[A, B]
       ) = {
         apply(histogram1)
       }
@@ -194,71 +131,40 @@ object CollectorRegistry {
   }
 
   private class Prefixed[F[_]](private val delegate: CollectorRegistry[F], private val prefix: String)
-    extends CollectorRegistry[F] {
+      extends CollectorRegistry[F] {
 
     private def prefixedName(name: String): String = s"${prefix}_$name"
 
-    def gauge[A, B[_]](
-      name: String,
-      help: String,
-      labels: A)(implicit
-      magnet: LabelsMagnet[A, B]
+    def gauge[A, B[_]](name: String, help: String, labels: A)(implicit
+        magnet: LabelsMagnet[A, B]
     ): Resource[F, B[Gauge[F]]] = delegate.gauge(prefixedName(name), help, labels)
 
-    def gaugeInitialized[A, B[_]](
-      name: String,
-      help: String,
-      labels: A)(implicit
-      magnet: LabelsMagnetInitialized[A, B]
+    def gaugeInitialized[A, B[_]](name: String, help: String, labels: A)(implicit
+        magnet: LabelsMagnetInitialized[A, B]
     ): Resource[F, B[Gauge[F]]] = delegate.gaugeInitialized(prefixedName(name), help, labels)
 
-
-    def counter[A, B[_]](
-      name: String,
-      help: String,
-      labels: A)(implicit
-      magnet: LabelsMagnet[A, B]
+    def counter[A, B[_]](name: String, help: String, labels: A)(implicit
+        magnet: LabelsMagnet[A, B]
     ): Resource[F, B[Counter[F]]] = delegate.counter(prefixedName(name), help, labels)
 
-    def counterInitialized[A, B[_]](
-      name: String,
-      help: String,
-      labels: A)(implicit
-      magnet: LabelsMagnetInitialized[A, B]
+    def counterInitialized[A, B[_]](name: String, help: String, labels: A)(implicit
+        magnet: LabelsMagnetInitialized[A, B]
     ): Resource[F, B[Counter[F]]] = delegate.counterInitialized(prefixedName(name), help, labels)
 
-
-    def summary[A, B[_]](
-      name: String,
-      help: String,
-      quantiles: Quantiles,
-      labels: A)(implicit
-      magnet: LabelsMagnet[A, B]
+    def summary[A, B[_]](name: String, help: String, quantiles: Quantiles, labels: A)(implicit
+        magnet: LabelsMagnet[A, B]
     ): Resource[F, B[Summary[F]]] = delegate.summary(prefixedName(name), help, quantiles, labels)
 
-    def summaryInitialized[A, B[_]](
-      name: String,
-      help: String,
-      quantiles: Quantiles,
-      labels: A)(implicit
-      magnet: LabelsMagnetInitialized[A, B]
+    def summaryInitialized[A, B[_]](name: String, help: String, quantiles: Quantiles, labels: A)(implicit
+        magnet: LabelsMagnetInitialized[A, B]
     ): Resource[F, B[Summary[F]]] = delegate.summaryInitialized(prefixedName(name), help, quantiles, labels)
 
-
-    def histogram[A, B[_]](
-      name: String,
-      help: String,
-      buckets: Buckets,
-      labels: A)(implicit
-      magnet: LabelsMagnet[A, B]
+    def histogram[A, B[_]](name: String, help: String, buckets: Buckets, labels: A)(implicit
+        magnet: LabelsMagnet[A, B]
     ): Resource[F, B[Histogram[F]]] = delegate.histogram(prefixedName(name), help, buckets, labels)
 
-    def histogramInitialized[A, B[_]](
-      name: String,
-      help: String,
-      buckets: Buckets,
-      labels: A)(implicit
-      magnet: LabelsMagnetInitialized[A, B]
+    def histogramInitialized[A, B[_]](name: String, help: String, buckets: Buckets, labels: A)(implicit
+        magnet: LabelsMagnetInitialized[A, B]
     ): Resource[F, B[Histogram[F]]] = delegate.histogramInitialized(prefixedName(name), help, buckets, labels)
   }
 
@@ -268,18 +174,18 @@ object CollectorRegistry {
     type State[F[_]] = Map[String, Entry[F]]
   }
 
-  private[smetrics] class Cached[F[_] : Concurrent](
-    registry: CollectorRegistry[F],
-    stateRef: SerialRef[F, Cached.State[F]]
+  private[smetrics] class Cached[F[_]: Concurrent](
+      registry: CollectorRegistry[F],
+      stateRef: SerialRef[F, Cached.State[F]]
   ) extends CollectorRegistry[F] {
 
     import Cached.*
 
     private def getOrCreate[A](
-      name: String,
-      names: List[String],
-      ofType: String,
-      create: Resource[F, A],
+        name: String,
+        names: List[String],
+        ofType: String,
+        create: Resource[F, A],
     ): Resource[F, A] = {
 
       type Modified = (State[F], ResourceCounter[F, A])
@@ -320,10 +226,10 @@ object CollectorRegistry {
 
           case None =>
             val invalidate = stateRef.update { cache => (cache - name).pure[F] }
-            val resource = create.onFinalize(invalidate)
+            val resource   = create.onFinalize(invalidate)
             for {
               rc <- ResourceCounter.of[F, A](resource)
-              s1 = state.updated(name, Entry(rc, names, ofType))
+              s1  = state.updated(name, Entry(rc, names, ofType))
             } yield s1 -> rc
         }
 
@@ -333,7 +239,9 @@ object CollectorRegistry {
       } yield a
     }
 
-    override def gauge[A, B[_]](name: String, help: String, labels: A)(implicit magnet: LabelsMagnet[A, B]): Resource[F, B[Gauge[F]]] =
+    override def gauge[A, B[_]](name: String, help: String, labels: A)(implicit
+        magnet: LabelsMagnet[A, B]
+    ): Resource[F, B[Gauge[F]]] =
       getOrCreate(
         name = name,
         names = magnet.names(labels),
@@ -341,7 +249,9 @@ object CollectorRegistry {
         create = registry.gauge(name, help, labels)(magnet),
       )
 
-    override def gaugeInitialized[A, B[_]](name: String, help: String, labels: A)(implicit magnet: LabelsMagnetInitialized[A, B]): Resource[F, B[Gauge[F]]] =
+    override def gaugeInitialized[A, B[_]](name: String, help: String, labels: A)(implicit
+        magnet: LabelsMagnetInitialized[A, B]
+    ): Resource[F, B[Gauge[F]]] =
       getOrCreate(
         name = name,
         names = magnet.names(labels),
@@ -349,7 +259,9 @@ object CollectorRegistry {
         create = registry.gauge(name, help, labels)(magnet),
       )
 
-    override def counter[A, B[_]](name: String, help: String, labels: A)(implicit magnet: LabelsMagnet[A, B]): Resource[F, B[Counter[F]]] =
+    override def counter[A, B[_]](name: String, help: String, labels: A)(implicit
+        magnet: LabelsMagnet[A, B]
+    ): Resource[F, B[Counter[F]]] =
       getOrCreate(
         name = name,
         names = magnet.names(labels),
@@ -357,7 +269,9 @@ object CollectorRegistry {
         create = registry.counter(name, help, labels)(magnet),
       )
 
-    override def counterInitialized[A, B[_]](name: String, help: String, labels: A)(implicit magnet: LabelsMagnetInitialized[A, B]): Resource[F, B[Counter[F]]] =
+    override def counterInitialized[A, B[_]](name: String, help: String, labels: A)(implicit
+        magnet: LabelsMagnetInitialized[A, B]
+    ): Resource[F, B[Counter[F]]] =
       getOrCreate(
         name = name,
         names = magnet.names(labels),
@@ -365,7 +279,9 @@ object CollectorRegistry {
         create = registry.counter(name, help, labels)(magnet),
       )
 
-    override def summary[A, B[_]](name: String, help: String, quantiles: Quantiles, labels: A)(implicit magnet: LabelsMagnet[A, B]): Resource[F, B[Summary[F]]] =
+    override def summary[A, B[_]](name: String, help: String, quantiles: Quantiles, labels: A)(implicit
+        magnet: LabelsMagnet[A, B]
+    ): Resource[F, B[Summary[F]]] =
       getOrCreate(
         name = name,
         names = magnet.names(labels),
@@ -373,7 +289,9 @@ object CollectorRegistry {
         create = registry.summary(name, help, quantiles, labels)(magnet),
       )
 
-    override def summaryInitialized[A, B[_]](name: String, help: String, quantiles: Quantiles, labels: A)(implicit magnet: LabelsMagnetInitialized[A, B]): Resource[F, B[Summary[F]]] =
+    override def summaryInitialized[A, B[_]](name: String, help: String, quantiles: Quantiles, labels: A)(implicit
+        magnet: LabelsMagnetInitialized[A, B]
+    ): Resource[F, B[Summary[F]]] =
       getOrCreate(
         name = name,
         names = magnet.names(labels),
@@ -381,7 +299,9 @@ object CollectorRegistry {
         create = registry.summary(name, help, quantiles, labels)(magnet),
       )
 
-    override def histogram[A, B[_]](name: String, help: String, buckets: Buckets, labels: A)(implicit magnet: LabelsMagnet[A, B]): Resource[F, B[Histogram[F]]] =
+    override def histogram[A, B[_]](name: String, help: String, buckets: Buckets, labels: A)(implicit
+        magnet: LabelsMagnet[A, B]
+    ): Resource[F, B[Histogram[F]]] =
       getOrCreate(
         name = name,
         names = magnet.names(labels),
@@ -389,7 +309,9 @@ object CollectorRegistry {
         create = registry.histogram(name, help, buckets, labels)(magnet),
       )
 
-    override def histogramInitialized[A, B[_]](name: String, help: String, buckets: Buckets, labels: A)(implicit magnet: LabelsMagnetInitialized[A, B]): Resource[F, B[Histogram[F]]] =
+    override def histogramInitialized[A, B[_]](name: String, help: String, buckets: Buckets, labels: A)(implicit
+        magnet: LabelsMagnetInitialized[A, B]
+    ): Resource[F, B[Histogram[F]]] =
       getOrCreate(
         name = name,
         names = magnet.names(labels),

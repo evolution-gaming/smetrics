@@ -20,7 +20,7 @@ class InstrumentedAppender extends UnsynchronizedAppenderBase[ILoggingEvent] {
 }
 
 object InstrumentedAppender {
-  val Counter =
+  val Counter      =
     PrometheusCounter
       .builder()
       .name("logback_appender_total")

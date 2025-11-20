@@ -13,20 +13,20 @@ trait DoobieMetrics[F[_]] {
 
 object DoobieMetrics {
   def of[F[_]: Monad](
-    collectorRegistry: CollectorRegistry[F],
-    prefix: String = "db"
+      collectorRegistry: CollectorRegistry[F],
+      prefix: String = "db"
   ): Resource[F, String => DoobieMetrics[F]] = {
 
     val queryTimeSummary = collectorRegistry.summary(
-      name      = s"${prefix}_query_time",
-      help      = s"Query time in seconds",
+      name = s"${prefix}_query_time",
+      help = s"Query time in seconds",
       quantiles = Quantiles.Default,
-      labels    = LabelNames("name", "result")
+      labels = LabelNames("name", "result")
     )
 
     val queryResultCounter = collectorRegistry.counter(
-      name   = s"${prefix}_query_result",
-      help   = "Query result: success or failure",
+      name = s"${prefix}_query_result",
+      help = "Query result: success or failure",
       labels = LabelNames("name", "result")
     )
 

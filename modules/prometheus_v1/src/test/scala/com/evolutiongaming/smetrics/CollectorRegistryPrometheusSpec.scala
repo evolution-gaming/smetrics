@@ -205,24 +205,26 @@ object CollectorRegistryPrometheusSpec {
 
     import io.prometheus.metrics.model.snapshots._
 
-    private def findDataPoint[F[_]: Sync](metric: String, names: List[String], values: List[String]): F[Option[DataPointSnapshot]] =
+    private def findDataPoint[F[_]: Sync](
+        metric: String,
+        names: List[String],
+        values: List[String]
+    ): F[Option[DataPointSnapshot]] =
       Sync[F].delay {
         val snapshot = self.scrape((n: String) => n == metric)
         snapshot.asScala.toList
-          .collectFirstSome[DataPointSnapshot] {
-            case snapshot =>
-              snapshot
-                .getDataPoints()
-                .asScala
-                .toList
-                .find { data =>
-                  val labels = data.getLabels()
-                  names.zip(values).toList.forall {
-                    case (name, value) =>
-                      labels.contains(name) &&
-                      labels.get(name).equals(value)
-                  }
+          .collectFirstSome[DataPointSnapshot] { case snapshot =>
+            snapshot
+              .getDataPoints()
+              .asScala
+              .toList
+              .find { data =>
+                val labels = data.getLabels()
+                names.zip(values).toList.forall { case (name, value) =>
+                  labels.contains(name) &&
+                  labels.get(name).equals(value)
                 }
+              }
           }
       }
 
@@ -233,10 +235,12 @@ object CollectorRegistryPrometheusSpec {
       OptionT(findDataPoint(metric, names, values)).flatMap {
         case data: CounterSnapshot.CounterDataPointSnapshot =>
           OptionT.pure[F](data.getValue())
-        case data: GaugeSnapshot.GaugeDataPointSnapshot =>
+        case data: GaugeSnapshot.GaugeDataPointSnapshot     =>
           OptionT.pure[F](data.getValue())
-        case other =>
-          OptionT.liftF[F, Double](Error(s"Value extraction for metric $metric of type ${other.getClass} is not supported").raiseError)
+        case other                                          =>
+          OptionT.liftF[F, Double](
+            Error(s"Value extraction for metric $metric of type ${other.getClass} is not supported").raiseError
+          )
       }.value
 
     def sum[F[_]: Sync](metric: String): F[Option[Double]] =
@@ -247,12 +251,14 @@ object CollectorRegistryPrometheusSpec {
 
     private def sum[F[_]: Sync](metric: String, names: List[String], values: List[String]): F[Option[Double]] =
       OptionT(findDataPoint(metric, names, values)).flatMap {
-        case data: SummarySnapshot.SummaryDataPointSnapshot =>
+        case data: SummarySnapshot.SummaryDataPointSnapshot     =>
           OptionT.pure[F](data.getSum())
         case data: HistogramSnapshot.HistogramDataPointSnapshot =>
           OptionT.pure[F](data.getSum())
-        case other =>
-          OptionT.liftF[F, Double](Error(s"Sum extraction for metric $metric of type ${other.getClass} is not supported").raiseError)
+        case other                                              =>
+          OptionT.liftF[F, Double](
+            Error(s"Sum extraction for metric $metric of type ${other.getClass} is not supported").raiseError
+          )
       }.value
 
     def count[F[_]: Sync](metric: String): F[Option[Long]] =
@@ -263,12 +269,14 @@ object CollectorRegistryPrometheusSpec {
 
     private def count[F[_]: Sync](metric: String, names: List[String], values: List[String]): F[Option[Long]] =
       OptionT(findDataPoint(metric, names, values)).flatMap {
-        case data: SummarySnapshot.SummaryDataPointSnapshot =>
+        case data: SummarySnapshot.SummaryDataPointSnapshot     =>
           OptionT.pure[F](data.getCount())
         case data: HistogramSnapshot.HistogramDataPointSnapshot =>
           OptionT.pure[F](data.getCount())
-        case other =>
-          OptionT.liftF[F, Long](Error(s"Count extraction for metric $metric of type ${other.getClass} is not supported").raiseError)
+        case other                                              =>
+          OptionT.liftF[F, Long](
+            Error(s"Count extraction for metric $metric of type ${other.getClass} is not supported").raiseError
+          )
       }.value
 
   }

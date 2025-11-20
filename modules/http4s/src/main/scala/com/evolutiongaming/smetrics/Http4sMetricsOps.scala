@@ -11,79 +11,76 @@ import org.http4s.{Method, Status}
 
 object Http4sMetricsOps {
 
-  /**
-   * Old, deprecated method. Uses summary for timed metrics. Doesn't allow to choose between summary and histogram.
-   * Use [[histogram]] or [[summary]] directly instead.
-   */
+  /** Old, deprecated method. Uses summary for timed metrics. Doesn't allow to choose between summary and histogram. Use
+    * [[histogram]] or [[summary]] directly instead.
+    */
   @deprecated(message = "Use summary or histogram instead", since = "1.0.2")
   def of[F[_]: Monad](collectorRegistry: CollectorRegistry[F], prefix: String = "http"): Resource[F, MetricsOps[F]] =
     summary(collectorRegistry, prefix)
 
-  /**
-   * Difference with [[summary]] is only in using histogram instead of summary for timed metrics.
-   */
+  /** Difference with [[summary]] is only in using histogram instead of summary for timed metrics.
+    */
   def histogram[F[_]: Monad](
-    collectorRegistry: CollectorRegistry[F],
-    prefix:            String = "http",
-    histogramBuckets:  Buckets = Buckets(NonEmptyList.of(.05, .1, .25, .5, 1, 2, 4, 8)),
+      collectorRegistry: CollectorRegistry[F],
+      prefix: String = "http",
+      histogramBuckets: Buckets = Buckets(NonEmptyList.of(.05, .1, .25, .5, 1, 2, 4, 8)),
   ): Resource[F, MetricsOps[F]] =
     for {
       responseDuration <- collectorRegistry.histogram(
-        s"${prefix}_response_duration_seconds",
-        "Response Duration in seconds.",
-        histogramBuckets,
-        LabelNames("classifier", "method", "phase"),
-      )
-      abnormal <- collectorRegistry.histogram(
-        s"${prefix}_abnormal_terminations",
-        "Total Abnormal Terminations.",
-        histogramBuckets,
-        LabelNames("classifier", "termination_type"),
-      )
-      metricOps <- create(collectorRegistry, prefix, responseDuration, abnormal)
+                            s"${prefix}_response_duration_seconds",
+                            "Response Duration in seconds.",
+                            histogramBuckets,
+                            LabelNames("classifier", "method", "phase"),
+                          )
+      abnormal         <- collectorRegistry.histogram(
+                            s"${prefix}_abnormal_terminations",
+                            "Total Abnormal Terminations.",
+                            histogramBuckets,
+                            LabelNames("classifier", "termination_type"),
+                          )
+      metricOps        <- create(collectorRegistry, prefix, responseDuration, abnormal)
     } yield metricOps
 
-  /**
-   * Difference with [[histogram]] is only in using summary instead of histogram for timed metrics
-   */
+  /** Difference with [[histogram]] is only in using summary instead of histogram for timed metrics
+    */
   def summary[F[_]: Monad](
-    collectorRegistry: CollectorRegistry[F],
-    prefix:            String = "http",
-    quantiles:         Quantiles = Quantiles.Default,
+      collectorRegistry: CollectorRegistry[F],
+      prefix: String = "http",
+      quantiles: Quantiles = Quantiles.Default,
   ): Resource[F, MetricsOps[F]] =
     for {
       responseDuration <- collectorRegistry.summary(
-        s"${prefix}_response_duration_seconds",
-        "Response Duration in seconds.",
-        quantiles,
-        LabelNames("classifier", "method", "phase"),
-      )
-      abnormal <- collectorRegistry.summary(
-        s"${prefix}_abnormal_terminations",
-        "Total Abnormal Terminations.",
-        quantiles,
-        LabelNames("classifier", "termination_type"),
-      )
-      metricOps <- create(collectorRegistry, prefix, responseDuration, abnormal)
+                            s"${prefix}_response_duration_seconds",
+                            "Response Duration in seconds.",
+                            quantiles,
+                            LabelNames("classifier", "method", "phase"),
+                          )
+      abnormal         <- collectorRegistry.summary(
+                            s"${prefix}_abnormal_terminations",
+                            "Total Abnormal Terminations.",
+                            quantiles,
+                            LabelNames("classifier", "termination_type"),
+                          )
+      metricOps        <- create(collectorRegistry, prefix, responseDuration, abnormal)
     } yield metricOps
 
   private def create[F[_]: Monad, A](
-    collectorRegistry:   CollectorRegistry[F],
-    prefix:              String,
-    responseDuration:    LabelValues.`3`[A],
-    abnormal:            LabelValues.`2`[A],
+      collectorRegistry: CollectorRegistry[F],
+      prefix: String,
+      responseDuration: LabelValues.`3`[A],
+      abnormal: LabelValues.`2`[A],
   )(implicit observable: Observable[F, A]): Resource[F, MetricsOps[F]] =
     for {
       activeRequests <- collectorRegistry.gauge(
-        s"${prefix}_active_request_count",
-        "Total Active Requests.",
-        LabelNames("classifier"),
-      )
-      requests <- collectorRegistry.counter(
-        s"${prefix}_request_count",
-        "Total Requests.",
-        LabelNames("classifier", "method", "status"),
-      )
+                          s"${prefix}_active_request_count",
+                          "Total Active Requests.",
+                          LabelNames("classifier"),
+                        )
+      requests       <- collectorRegistry.counter(
+                          s"${prefix}_request_count",
+                          "Total Requests.",
+                          LabelNames("classifier", "method", "status"),
+                        )
     } yield new MetricsOps[F] {
       override def increaseActiveRequests(classifier: Option[String]): F[Unit] =
         activeRequests.labels(reportClassifier(classifier)).inc()
@@ -98,10 +95,10 @@ object Http4sMetricsOps {
       }
 
       override def recordTotalTime(
-        method:     Method,
-        status:     Status,
-        elapsed:    Long,
-        classifier: Option[String],
+          method: Method,
+          status: Status,
+          elapsed: Long,
+          classifier: Option[String],
       ): F[Unit] = {
         val responseDurationLabeled = responseDuration
           .labels(reportClassifier(classifier), reportMethod(method), reportPhase(Phase.Body))
@@ -112,22 +109,21 @@ object Http4sMetricsOps {
       }
 
       override def recordAbnormalTermination(
-        elapsed:         Long,
-        terminationType: TerminationType,
-        classifier:      Option[String],
+          elapsed: Long,
+          terminationType: TerminationType,
+          classifier: Option[String],
       ): F[Unit] = {
         val abnormalLabeled = abnormal.labels(reportClassifier(classifier), reportTermination(terminationType))
         observable.observe(abnormalLabeled, elapsed.nanosToSeconds)
       }
     }
 
-  /**
-   * Just a wrapper around histogram and summary so we can abstract over them in [[create]].
-   */
+  /** Just a wrapper around histogram and summary so we can abstract over them in [[create]].
+    */
   private trait Observable[F[_], A] {
     def observe(metric: A, value: Double): F[Unit]
   }
-  implicit private def summaryObservable[F[_]]: Observable[F, Summary[F]] = new Observable[F, Summary[F]] {
+  implicit private def summaryObservable[F[_]]: Observable[F, Summary[F]]     = new Observable[F, Summary[F]] {
     override def observe(metric: Summary[F], value: Double): F[Unit] = metric.observe(value)
   }
   implicit private def histogramObservable[F[_]]: Observable[F, Histogram[F]] = new Observable[F, Histogram[F]] {
