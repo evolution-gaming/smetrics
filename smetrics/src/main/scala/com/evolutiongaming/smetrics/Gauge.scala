@@ -14,7 +14,7 @@ trait Gauge[F[_]] {
 
 object Gauge {
 
-  def empty[F[_] : Applicative]: Gauge[F] = const(().pure[F])
+  def empty[F[_]: Applicative]: Gauge[F] = const(().pure[F])
 
   def const[F[_]](unit: F[Unit]): Gauge[F] = new Gauge[F] {
 
@@ -24,7 +24,6 @@ object Gauge {
 
     def set(value: Double) = unit
   }
-
 
   implicit class GaugeOps[F[_]](val self: Gauge[F]) extends AnyVal {
 

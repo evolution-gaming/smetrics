@@ -10,10 +10,9 @@ trait Counter[F[_]] {
 
 object Counter {
 
-  def empty[F[_] : Applicative]: Counter[F] = const(().pure[F])
+  def empty[F[_]: Applicative]: Counter[F] = const(().pure[F])
 
   def const[F[_]](unit: F[Unit]): Counter[F] = (_: Double) => unit
-
 
   implicit class CounterOps[F[_]](val self: Counter[F]) extends AnyVal {
 

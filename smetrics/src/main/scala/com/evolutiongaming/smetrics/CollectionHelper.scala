@@ -22,8 +22,8 @@ object CollectionHelper {
         case values1 :: values2 :: tail =>
           tail.foldLeft(
             values1.map2(values2)(List(_, _))
-          )(
-            (accumulator, values) => for {
+          )((accumulator, values) =>
+            for {
               value1 <- accumulator
               value2 <- values
             } yield value1 :+ value2
