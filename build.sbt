@@ -26,7 +26,8 @@ lazy val commonSettings = Seq(
 
 val alias: Seq[sbt.Def.Setting[?]] =
   addCommandAlias("check", "all versionPolicyCheck Compile/doc") ++
-    addCommandAlias("build", "+all compile test")
+    addCommandAlias("build", "+all compile test") ++
+    addCommandAlias("fmt", "+all scalafmtAll scalafmtSbt")
 
 lazy val root = (project
   in file(".")
