@@ -59,7 +59,7 @@ object CollectorRegistryPrometheus {
 
       def gauge[A, B[_]](name: String, help: String, labels: A)(implicit
         magnet: LabelsMagnet[A, B],
-      ) = {
+      ): Resource[F, B[Gauge[F]]] = {
         val gauge = P.Gauge
           .builder()
           .name(name)
@@ -71,7 +71,7 @@ object CollectorRegistryPrometheus {
 
       def gaugeInitialized[A, B[_]](name: String, help: String, labels: A)(implicit
         magnet: LabelsMagnetInitialized[A, B],
-      ) = {
+      ): Resource[F, B[Gauge[F]]] = {
         val gauge = P.Gauge
           .builder()
           .name(name)
@@ -83,7 +83,7 @@ object CollectorRegistryPrometheus {
 
       def counter[A, B[_]](name: String, help: String, labels: A)(implicit
         magnet: LabelsMagnet[A, B],
-      ) = {
+      ): Resource[F, B[Counter[F]]] = {
         val counter = P.Counter
           .builder()
           .name(name)
@@ -95,7 +95,7 @@ object CollectorRegistryPrometheus {
 
       def counterInitialized[A, B[_]](name: String, help: String, labels: A)(implicit
         magnet: LabelsMagnetInitialized[A, B],
-      ) = {
+      ): Resource[F, B[Counter[F]]] = {
         val counter = P.Counter
           .builder()
           .name(name)
@@ -107,7 +107,7 @@ object CollectorRegistryPrometheus {
 
       def summary[A, B[_]](name: String, help: String, quantiles: Quantiles, labels: A)(implicit
         magnet: LabelsMagnet[A, B],
-      ) = {
+      ): Resource[F, B[Summary[F]]] = {
         val summary = {
           val summary = P.Summary
             .builder()
@@ -124,7 +124,7 @@ object CollectorRegistryPrometheus {
 
       def summaryInitialized[A, B[_]](name: String, help: String, quantiles: Quantiles, labels: A)(implicit
         magnet: LabelsMagnetInitialized[A, B],
-      ) = {
+      ): Resource[F, B[Summary[F]]] = {
         val summary = {
           val summary = P.Summary
             .builder()
@@ -141,7 +141,7 @@ object CollectorRegistryPrometheus {
 
       def histogram[A, B[_]](name: String, help: String, buckets: Buckets, labels: A)(implicit
         magnet: LabelsMagnet[A, B],
-      ) = {
+      ): Resource[F, B[Histogram[F]]] = {
 
         val histogram = P.Histogram
           .builder()
@@ -155,7 +155,7 @@ object CollectorRegistryPrometheus {
 
       def histogramInitialized[A, B[_]](name: String, help: String, buckets: Buckets, labels: A)(implicit
         magnet: LabelsMagnetInitialized[A, B],
-      ) = {
+      ): Resource[F, B[Histogram[F]]] = {
 
         val histogram = P.Histogram
           .builder()
@@ -165,6 +165,18 @@ object CollectorRegistryPrometheus {
           .labelNames(magnet.names(labels): _*)
 
         apply(histogram, magnet.values(labels))
+      }
+
+      def info[A, B[_]](name: String, help: String, labels: A)(implicit
+        magnet: LabelsMagnet[A, B],
+      ): Resource[F, B[Info[F]]] = {
+        val info = P.Info
+          .builder()
+          .name(name)
+          .help(help)
+          .labelNames(magnet.names(labels): _*)
+
+        apply(info, List.empty)
       }
     }
   }
@@ -198,12 +210,12 @@ object CollectorRegistryPrometheus {
             else m.labelValues(labels: _*).inc(delta)
           }
 
-          def dec(delta: Double) = Sync[F].delay {
+          def dec(delta: Double): F[Unit] = Sync[F].delay {
             if (labels.isEmpty) m.dec(delta)
             else m.labelValues(labels: _*).dec(delta)
           }
 
-          def set(value: Double) = Sync[F].delay {
+          def set(value: Double): F[Unit] = Sync[F].delay {
             if (labels.isEmpty) m.set(value)
             else m.labelValues(labels: _*).set(value)
           }
@@ -216,7 +228,7 @@ object CollectorRegistryPrometheus {
         m.initLabelValues(labels: _*)
       def toWrapped(m: P.Histogram, labels: List[String]): Histogram[F] =
         new Histogram[F] {
-          def observe(value: Double) = Sync[F].delay {
+          def observe(value: Double): F[Unit] = Sync[F].delay {
             if (labels.isEmpty) m.observe(value)
             else m.labelValues(labels: _*).observe(value)
           }
@@ -228,10 +240,23 @@ object CollectorRegistryPrometheus {
         m.initLabelValues(labels: _*)
       def toWrapped(m: P.Summary, labels: List[String]): Summary[F] =
         new Summary[F] {
-          def observe(value: Double) = Sync[F].delay {
+          def observe(value: Double): F[Unit] = Sync[F].delay {
             if (labels.isEmpty) m.observe(value)
             else m.labelValues(labels: _*).observe(value)
           }
         }
     }
+
+  implicit private def infoAdapter[F[_]: Sync]: PrometheusMetricAdapter[P.Info, Info[F]] =
+    new PrometheusMetricAdapter[P.Info, Info[F]] {
+      def initializeLabelValues(m: P.Info, labels: List[String]): Unit =
+        m.addLabelValues(labels: _*)
+      def toWrapped(m: P.Info, labels: List[String]): Info[F] =
+        new Info[F] {
+          override def set(): F[Unit] = {
+            Sync[F].delay { m.addLabelValues(labels: _*) }
+          }
+        }
+    }
+
 }

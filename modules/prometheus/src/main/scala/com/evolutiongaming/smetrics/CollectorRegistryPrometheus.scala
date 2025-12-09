@@ -66,7 +66,7 @@ object CollectorRegistryPrometheus {
         help: String,
         labels: A)(implicit
         magnet: LabelsMagnet[A, B]
-      ) = {
+      ): Resource[F, B[Gauge[F]]] = {
         val gauge = P.Gauge.build()
           .name(name)
           .help(help)
@@ -79,7 +79,7 @@ object CollectorRegistryPrometheus {
         help: String,
         labels: A)(implicit
         magnet: LabelsMagnetInitialized[A, B]
-      ) = {
+      ): Resource[F, B[Gauge[F]]] = {
         val gauge = P.Gauge.build()
           .name(name)
           .help(help)
@@ -93,7 +93,7 @@ object CollectorRegistryPrometheus {
         help: String,
         labels: A)(implicit
         magnet: LabelsMagnet[A, B]
-      ) = {
+      ): Resource[F, B[Counter[F]]] = {
         val counter = P.Counter.build()
           .name(name)
           .help(help)
@@ -106,7 +106,7 @@ object CollectorRegistryPrometheus {
         help: String,
         labels: A)(implicit
         magnet: LabelsMagnetInitialized[A, B]
-      ) = {
+      ): Resource[F, B[Counter[F]]] = {
         val counter = P.Counter.build()
           .name(name)
           .help(help)
@@ -121,7 +121,7 @@ object CollectorRegistryPrometheus {
         quantiles: Quantiles,
         labels: A)(implicit
         magnet: LabelsMagnet[A, B]
-      ) = {
+      ): Resource[F, B[Summary[F]]] = {
         val summary = {
           val summary = P.Summary.build()
             .name(name)
@@ -141,7 +141,7 @@ object CollectorRegistryPrometheus {
         quantiles: Quantiles,
         labels: A)(implicit
         magnet: LabelsMagnetInitialized[A, B]
-      ) = {
+      ): Resource[F, B[Summary[F]]] = {
         val summary = {
           val summary = P.Summary.build()
             .name(name)
@@ -162,7 +162,7 @@ object CollectorRegistryPrometheus {
         buckets: Buckets,
         labels: A)(implicit
         magnet: LabelsMagnet[A, B]
-      ) = {
+      ): Resource[F, B[Histogram[F]]] = {
 
         val histogram = P.Histogram.build()
           .name(name)
@@ -178,7 +178,7 @@ object CollectorRegistryPrometheus {
         buckets: Buckets,
         labels: A)(implicit
         magnet: LabelsMagnetInitialized[A, B]
-      ) = {
+      ): Resource[F, B[Histogram[F]]] = {
 
         val histogram = P.Histogram.build()
           .name(name)
@@ -187,6 +187,16 @@ object CollectorRegistryPrometheus {
 
         apply[A, B, P.Histogram.Child, P.Histogram, P.Histogram.Builder, Histogram[F]](histogram, magnet.names(labels), magnet.values(labels))
       }
+
+      def info[A, B[_]](
+        name: String,
+        help: String,
+        labels: A)(implicit
+        magnet: LabelsMagnet[A, B],
+      ): Resource[F, B[Info[F]]] = {
+        Resource.raiseError[F, B[Info[F]], Throwable](new UnsupportedOperationException("`info` is not support on Prometheus 0.x"))
+      }
+
     }
   }
 
@@ -199,14 +209,14 @@ object CollectorRegistryPrometheus {
 
   private implicit def counterPrometheusToCounter[F[_] : Sync]: P.Counter => Counter[F] = (a: P.Counter) => {
     new Counter[F] {
-      def inc(value: Double) = Sync[F].delay { a.inc(value) }
+      def inc(value: Double): F[Unit] = Sync[F].delay { a.inc(value) }
     }
   }
 
 
   private implicit def counterChildPrometheusToCounter[F[_] : Sync]: P.Counter.Child => Counter[F] = (a: P.Counter.Child) => {
     new Counter[F] {
-      def inc(value: Double) = Sync[F].delay { a.inc(value) }
+      def inc(value: Double): F[Unit] = Sync[F].delay { a.inc(value) }
     }
   }
 
@@ -214,11 +224,11 @@ object CollectorRegistryPrometheus {
   private implicit def gaugePrometheusToGauge[F[_] : Sync]: P.Gauge => Gauge[F] = (a: P.Gauge) => {
     new Gauge[F] {
 
-      def inc(value: Double) = Sync[F].delay { a.inc(value) }
+      def inc(value: Double): F[Unit] = Sync[F].delay { a.inc(value) }
 
-      def dec(value: Double) = Sync[F].delay { a.dec(value) }
+      def dec(value: Double): F[Unit] = Sync[F].delay { a.dec(value) }
 
-      def set(value: Double) = Sync[F].delay { a.set(value) }
+      def set(value: Double): F[Unit] = Sync[F].delay { a.set(value) }
     }
   }
 
@@ -226,18 +236,18 @@ object CollectorRegistryPrometheus {
   private implicit def gaugeChildPrometheusToGauge[F[_] : Sync]: P.Gauge.Child => Gauge[F] = (a: P.Gauge.Child) => {
     new Gauge[F] {
 
-      def inc(value: Double) = Sync[F].delay { a.inc(value) }
+      def inc(value: Double): F[Unit] = Sync[F].delay { a.inc(value) }
 
-      def dec(value: Double) = Sync[F].delay { a.dec(value) }
+      def dec(value: Double): F[Unit] = Sync[F].delay { a.dec(value) }
 
-      def set(value: Double) = Sync[F].delay { a.set(value) }
+      def set(value: Double): F[Unit] = Sync[F].delay { a.set(value) }
     }
   }
 
 
   private implicit def summeryPrometheusToSummery[F[_] : Sync]: P.Summary => Summary[F] = (a: P.Summary) => {
     new Summary[F] {
-      def observe(value: Double) = Sync[F].delay { a.observe(value) }
+      def observe(value: Double): F[Unit] = Sync[F].delay { a.observe(value) }
     }
   }
 

@@ -227,6 +227,21 @@ class CollectorRegistryCachedSpec extends AnyWordSpec with Matchers {
         .unsafeRunSync()
     }
 
+    "cannot create info" in {
+      val res = for {
+        pr <- Prometheus.default[IO].withCaching.toResource
+        i1 <- pr.registry.info(
+          "foo",
+          "bar",
+          LabelNames("baz")
+        )
+      } yield (pr, i1)
+      res.allocated.attempt.unsafeRunSync() match {
+        case Left(error) => error.getMessage shouldBe "`info` is not support on Prometheus 0.x"
+        case Right(value) => fail(s"expected failure, but got : $value")
+      }
+    }
+
   }
 
 }
