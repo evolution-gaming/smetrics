@@ -52,7 +52,7 @@ lazy val smetrics = (project
     libraryDependencies ++= crossSettings(
       scalaVersion.value,
       if3 = Nil,
-      if2 = List(compilerPlugin("org.typelevel" % "kind-projector" % "0.13.3" cross CrossVersion.full))
+      if2 = List(compilerPlugin("org.typelevel" % "kind-projector" % "0.13.4" cross CrossVersion.full))
     ),
     scalacOptions ++= crossSettings(
       scalaVersion.value,
