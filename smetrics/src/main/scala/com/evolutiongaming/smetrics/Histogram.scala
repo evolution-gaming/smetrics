@@ -10,10 +10,9 @@ trait Histogram[F[_]] {
 
 object Histogram {
 
-  def empty[F[_] : Applicative]: Histogram[F] = const(().pure[F])
+  def empty[F[_]: Applicative]: Histogram[F] = const(().pure[F])
 
   def const[F[_]](unit: F[Unit]): Histogram[F] = (_: Double) => unit
-
 
   implicit class HistogramOps[F[_]](val self: Histogram[F]) extends AnyVal {
 

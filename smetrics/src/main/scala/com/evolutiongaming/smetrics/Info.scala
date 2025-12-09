@@ -9,12 +9,11 @@ trait Info[F[_]] {
 
 object Info {
 
-  def empty[F[_] : Applicative]: Info[F] = const(().pure[F])
+  def empty[F[_]: Applicative]: Info[F] = const(().pure[F])
 
   def const[F[_]](unit: F[Unit]): Info[F] = new Info[F] {
     def set(): F[Unit] = unit
   }
-
 
   implicit class InfoOps[F[_]](val self: Info[F]) extends AnyVal {
 

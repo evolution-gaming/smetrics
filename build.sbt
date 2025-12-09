@@ -1,7 +1,6 @@
-import sbt.librarymanagement.For3Use2_13
-import Dependencies._
+import Dependencies.*
 
-def crossSettings[T](scalaVersion: String, if3: Seq[T], if2: Seq[T]) = {
+def crossSettings[T](scalaVersion: String, if3: Seq[T], if2: Seq[T]): Seq[T] = {
   CrossVersion.partialVersion(scalaVersion) match {
     case Some((3, _)) => if3
     case Some((2, 12 | 13)) => if2
@@ -22,120 +21,117 @@ lazy val commonSettings = Seq(
   crossScalaVersions := Seq("2.13.18", "3.3.7"),
   publishTo := Some(Resolver.evolutionReleases),
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
-  Compile / doc / scalacOptions += "-no-link-warnings")
+  Compile / doc / scalacOptions += "-no-link-warnings",
+)
 
 val alias: Seq[sbt.Def.Setting[?]] =
   addCommandAlias("check", "all versionPolicyCheck Compile/doc") ++
     addCommandAlias("build", "+all compile test") ++
     addCommandAlias("fmt", "+all scalafmtAll scalafmtSbt")
 
-lazy val root = (project
-  in file(".")
-  settings commonSettings
-  settings (alias)
-  settings (
+lazy val root = project
+  .in(file("."))
+  .settings(commonSettings)
+  .settings(alias)
+  .settings(
     publish / skip := true,
-    name := "smetrics-parent"
+    name := "smetrics-parent",
   )
-  aggregate(smetrics, prometheus, http4s, doobie, prometheus_v1, logback, sttp3))
+  .aggregate(smetrics, prometheus, http4s, doobie, prometheus_v1, logback, sttp3)
 
-lazy val smetrics = (project
-  in file("smetrics")
-  settings commonSettings
-  settings(
+lazy val smetrics = project
+  .in(file("smetrics"))
+  .settings(commonSettings)
+  .settings(
     name := "smetrics",
     scalacOptsFailOnWarn := Some(false),
     libraryDependencies ++= Seq(
       Cats.core,
       Cats.effect,
       `cats-helper`,
-      scalatest % Test),
+      scalatest % Test,
+    ),
     libraryDependencies ++= crossSettings(
       scalaVersion.value,
       if3 = Nil,
-      if2 = List(compilerPlugin("org.typelevel" % "kind-projector" % "0.13.4" cross CrossVersion.full))
+      if2 = List(compilerPlugin("org.typelevel" % "kind-projector" % "0.13.4" cross CrossVersion.full)),
     ),
     scalacOptions ++= crossSettings(
       scalaVersion.value,
       if3 = Seq("-Ykind-projector:underscores", "-language:implicitConversions"),
-      if2 = Seq("-Xsource:3", "-P:kind-projector:underscore-placeholders")
-    )
-))
+      if2 = Seq("-Xsource:3", "-P:kind-projector:underscore-placeholders"),
+    ),
+  )
 
-lazy val prometheus = (project
-  in file("modules/prometheus")
-  settings commonSettings
-  dependsOn smetrics % "compile->compile;test->test"
-  settings (
+lazy val prometheus = project
+  .in(file("modules/prometheus"))
+  .settings(commonSettings)
+  .dependsOn(smetrics % "compile->compile;test->test")
+  .settings(
     name := "smetrics-prometheus",
     libraryDependencies ++= Seq(
       Dependencies.prometheus,
       Dependencies.prometheusCommon,
-      scalatest % Test
-    )
+      scalatest % Test,
+    ),
   )
-)
 
-lazy val prometheus_v1 = (project
-  in file("modules/prometheus_v1")
-  settings commonSettings
-  dependsOn smetrics % "compile->compile;test->test"
-  settings (
+lazy val prometheus_v1 = project
+  .in(file("modules/prometheus_v1"))
+  .settings(commonSettings)
+  .dependsOn(smetrics % "compile->compile;test->test")
+  .settings(
     name := "smetrics-prometheus-v1",
     libraryDependencies ++= Seq(
       Dependencies.PrometheusV1.core,
       Dependencies.PrometheusV1.formats,
-      scalatest % Test
+      scalatest % Test,
     ),
   )
-)
 
-lazy val logback = (project
-  in file("modules/logback")
-  settings commonSettings
-  dependsOn smetrics % "compile->compile;test->test"
-  settings (
+lazy val logback = project
+  .in(file("modules/logback"))
+  .settings(commonSettings)
+  .dependsOn(smetrics % "compile->compile;test->test")
+  .settings(
     name := "smetrics-logback",
     libraryDependencies ++= Seq(
       Dependencies.PrometheusV1.core,
-      Dependencies.Logback.classic
+      Dependencies.Logback.classic,
     ),
-    versionPolicyCheck / skip := true
+    versionPolicyCheck / skip := true,
   )
-)
 
-lazy val http4s = (project
-  in file("modules/http4s")
-  settings commonSettings
-  dependsOn smetrics % "compile->compile;test->test"
-  settings(
+lazy val http4s = project
+  .in(file("modules/http4s"))
+  .settings(commonSettings)
+  .dependsOn(smetrics % "compile->compile;test->test")
+  .settings(
     name := "smetrics-http4s",
-    libraryDependencies += Dependencies.http4s
+    libraryDependencies += Dependencies.http4s,
   )
-)
 
-lazy val doobie = (project
-  in file("modules/doobie")
-  settings commonSettings
-  dependsOn smetrics % "compile->compile;test->test"
-  settings(
+lazy val doobie = project
+  .in(file("modules/doobie"))
+  .settings(commonSettings)
+  .dependsOn(smetrics % "compile->compile;test->test")
+  .settings(
     name := "smetrics-doobie",
     libraryDependencies += Dependencies.doobie,
-  libraryDependencies ++= Seq(
-    Dependencies.doobie,
-    `cats-helper`)
+    libraryDependencies ++= Seq(
+      Dependencies.doobie,
+      `cats-helper`,
+    ),
   )
-)
 
-lazy val sttp3 = (project
-  in file("modules/sttp3")
-  settings commonSettings
-  dependsOn(smetrics % "compile->compile;test->test")
-  settings(
+lazy val sttp3 = project
+  .in(file("modules/sttp3"))
+  .settings(commonSettings)
+  .dependsOn(smetrics % "compile->compile;test->test")
+  .settings(
     name := "smetrics-sttp3",
     libraryDependencies ++= Seq(
       "com.softwaremill.sttp.client3" %% "core" % "3.11.0",
       "com.softwaremill.sttp.client3" %% "cats" % "3.11.0" % Test,
-    )
+    ),
   )
-)

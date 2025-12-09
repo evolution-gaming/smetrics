@@ -1,19 +1,19 @@
 package com.evolutiongaming.smetrics
 
 import cats.arrow.FunctionK
+import cats.data.OptionT
 import cats.data.{NonEmptyList => Nel}
 import cats.effect._
 import cats.syntax.all._
 import com.evolutiongaming.smetrics.IOSuite._
 import com.evolutiongaming.smetrics.LabelValues.`0`
+import io.prometheus.metrics.model.registry.PrometheusRegistry
+import org.scalatest.Assertion
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
-import io.prometheus.metrics.model.registry.PrometheusRegistry
 
 import scala.jdk.CollectionConverters._
 import scala.util.control.NoStackTrace
-import cats.data.OptionT
-import org.scalatest.Assertion
 
 class CollectorRegistryPrometheusSpec extends AsyncFunSuite with Matchers {
 
@@ -42,7 +42,7 @@ class CollectorRegistryPrometheusSpec extends AsyncFunSuite with Matchers {
   private def testGauge[F[_]: Sync]: F[Assertion] = {
 
     val registryP = new PrometheusRegistry()
-    val registry  = CollectorRegistryPrometheus[F](registryP)
+    val registry = CollectorRegistryPrometheus[F](registryP)
 
     val gauge = registry.gauge(name = "gauge", help = "help_test", labels = LabelNames("l1"))
 
@@ -60,9 +60,9 @@ class CollectorRegistryPrometheusSpec extends AsyncFunSuite with Matchers {
       gauge.mapK(FunctionK.id[F]).use { gauge =>
         for {
           v1 <- value("v1")
-          _  <- gauge.labels("v1").set(2.0)
-          _  <- gauge.labels("v2").inc(2.0)
-          _  <- gauge.labels("v2").dec()
+          _ <- gauge.labels("v1").set(2.0)
+          _ <- gauge.labels("v2").inc(2.0)
+          _ <- gauge.labels("v2").dec()
           v2 <- value("v1")
           v3 <- value("v2")
           v4 <- value("v3")
@@ -80,7 +80,7 @@ class CollectorRegistryPrometheusSpec extends AsyncFunSuite with Matchers {
   private def testCounter[F[_]: Sync]: F[Assertion] = {
 
     val registryP = new PrometheusRegistry()
-    val registry  = CollectorRegistryPrometheus[F](registryP)
+    val registry = CollectorRegistryPrometheus[F](registryP)
 
     val counter = registry.counter(name = "counter", help = "help_test", labels = LabelNames("l1", "l2"))
 
@@ -99,9 +99,9 @@ class CollectorRegistryPrometheusSpec extends AsyncFunSuite with Matchers {
       counter.mapK(FunctionK.id[F]).use { counter =>
         for {
           v1 <- value("v2", "v3")
-          _  <- counter.labels("v3", "v1").inc(2.0)
-          _  <- counter.labels("v3", "v1").inc()
-          _  <- counter.labels("v2", "v2").inc()
+          _ <- counter.labels("v3", "v1").inc(2.0)
+          _ <- counter.labels("v3", "v1").inc()
+          _ <- counter.labels("v2", "v2").inc()
           v2 <- value("v3", "v1")
           v3 <- value("v2", "v2")
           v4 <- value("v3", "v3")
@@ -119,7 +119,7 @@ class CollectorRegistryPrometheusSpec extends AsyncFunSuite with Matchers {
   private def testSummary[F[_]: Sync]: F[Assertion] = {
 
     val registryP = new PrometheusRegistry()
-    val registry  = CollectorRegistryPrometheus[F](registryP)
+    val registry = CollectorRegistryPrometheus[F](registryP)
 
     val summary = registry.summary(
       name = "summary",
@@ -138,9 +138,9 @@ class CollectorRegistryPrometheusSpec extends AsyncFunSuite with Matchers {
     def check(summary: Resource[F, `0`[Summary[F]]]): F[Assertion] =
       summary.mapK(FunctionK.id[F]).use { summary =>
         for {
-          _     <- summary.observe(1.0)
-          _     <- summary.observe(2.0)
-          sum   <- registryP.sum("summary")
+          _ <- summary.observe(1.0)
+          _ <- summary.observe(2.0)
+          sum <- registryP.sum("summary")
           count <- registryP.count[F]("summary")
         } yield {
           sum shouldEqual Some(3.0)
@@ -153,7 +153,7 @@ class CollectorRegistryPrometheusSpec extends AsyncFunSuite with Matchers {
 
   private def testHistogram[F[_]: Sync]: F[Assertion] = {
     val registryP = new PrometheusRegistry()
-    val registry  = CollectorRegistryPrometheus[F](registryP)
+    val registry = CollectorRegistryPrometheus[F](registryP)
 
     val histogram = registry.histogram(
       name = "histogram",
@@ -181,13 +181,13 @@ class CollectorRegistryPrometheusSpec extends AsyncFunSuite with Matchers {
     def check(histogram: Resource[F, LabelValues.`3`[Histogram[F]]], defaultValue: Option[Double]): F[Assertion] =
       histogram.mapK(FunctionK.id[F]).use { histogram =>
         for {
-          _      <- histogram.labels("n1", "n1", "n1").observe(1.0)
-          _      <- histogram.labels("n1", "n1", "n1").observe(2.0)
-          sum1   <- sum("histogram", "n1")
+          _ <- histogram.labels("n1", "n1", "n1").observe(1.0)
+          _ <- histogram.labels("n1", "n1", "n1").observe(2.0)
+          sum1 <- sum("histogram", "n1")
           count1 <- count("histogram", "n1")
-          sum2   <- sum("histogram", "n2")
+          sum2 <- sum("histogram", "n2")
           count2 <- count("histogram", "n2")
-          sum3   <- sum("histogram", "n3")
+          sum3 <- sum("histogram", "n3")
           count3 <- count("histogram", "n3")
         } yield {
           sum1 shouldEqual Some(3.0)
@@ -205,7 +205,7 @@ class CollectorRegistryPrometheusSpec extends AsyncFunSuite with Matchers {
   private def testInfo[F[_]: Sync]: F[Assertion] = {
 
     val registryP = new PrometheusRegistry()
-    val registry  = CollectorRegistryPrometheus[F](registryP)
+    val registry = CollectorRegistryPrometheus[F](registryP)
 
     val info = registry.info(name = "info", help = "help_test", labels = LabelNames("l1"))
 
@@ -232,7 +232,8 @@ object CollectorRegistryPrometheusSpec {
 
     import io.prometheus.metrics.model.snapshots._
 
-    private def findDataPoint[F[_]: Sync](metric: String, names: List[String], values: List[String]): F[Option[DataPointSnapshot]] =
+    private def findDataPoint[F[_]: Sync](metric: String, names: List[String], values: List[String])
+      : F[Option[DataPointSnapshot]] =
       Sync[F].delay {
         val snapshot = self.scrape((n: String) => n == metric)
         snapshot.asScala.toList
@@ -262,7 +263,9 @@ object CollectorRegistryPrometheusSpec {
         case data: GaugeSnapshot.GaugeDataPointSnapshot =>
           OptionT.pure[F](data.getValue)
         case other =>
-          OptionT.liftF[F, Double](Error(s"Value extraction for metric $metric of type ${other.getClass} is not supported").raiseError)
+          OptionT.liftF[F, Double](
+            Error(s"Value extraction for metric $metric of type ${ other.getClass } is not supported").raiseError,
+          )
       }.value
 
     def sum[F[_]: Sync](metric: String): F[Option[Double]] =
@@ -278,7 +281,9 @@ object CollectorRegistryPrometheusSpec {
         case data: HistogramSnapshot.HistogramDataPointSnapshot =>
           OptionT.pure[F](data.getSum)
         case other =>
-          OptionT.liftF[F, Double](Error(s"Sum extraction for metric $metric of type ${other.getClass} is not supported").raiseError)
+          OptionT.liftF[F, Double](
+            Error(s"Sum extraction for metric $metric of type ${ other.getClass } is not supported").raiseError,
+          )
       }.value
 
     def count[F[_]: Sync](metric: String): F[Option[Long]] =
@@ -294,7 +299,9 @@ object CollectorRegistryPrometheusSpec {
         case data: HistogramSnapshot.HistogramDataPointSnapshot =>
           OptionT.pure[F](data.getCount)
         case other =>
-          OptionT.liftF[F, Long](Error(s"Count extraction for metric $metric of type ${other.getClass} is not supported").raiseError)
+          OptionT.liftF[F, Long](
+            Error(s"Count extraction for metric $metric of type ${ other.getClass } is not supported").raiseError,
+          )
       }.value
 
   }

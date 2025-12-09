@@ -23,7 +23,6 @@ object Buckets {
     Buckets(buckets.reverse)
   }
 
-
   def exponential(start: Double, factor: Double, count: Int): Buckets = {
 
     @tailrec def loop(buckets: Nel[Double]): Nel[Double] = {

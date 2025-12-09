@@ -16,7 +16,7 @@ trait Prometheus[F[_]] {
 
 object Prometheus { prometheus =>
 
-  def apply[F[_] : Sync](collectorRegistry: P.CollectorRegistry): Prometheus[F] =
+  def apply[F[_]: Sync](collectorRegistry: P.CollectorRegistry): Prometheus[F] =
     new Prometheus[F] {
 
       override val registry: CollectorRegistry[F] = CollectorRegistryPrometheus(collectorRegistry)
@@ -28,11 +28,14 @@ object Prometheus { prometheus =>
       }
     }
 
-  def default[F[_] : Sync]: Prometheus[F] = apply(P.CollectorRegistry.defaultRegistry)
+  def default[F[_]: Sync]: Prometheus[F] = apply(P.CollectorRegistry.defaultRegistry)
 
   implicit class Ops[F[_]](val prometheus: Prometheus[F]) extends AnyVal {
 
-    def withCaching(implicit F: Concurrent[F]): F[Prometheus[F]] =
+    def withCaching(
+      implicit
+      F: Concurrent[F],
+    ): F[Prometheus[F]] =
       prometheus.registry.withCaching.map { cachedRegistry =>
         new Prometheus[F] {
           override def registry: CollectorRegistry[F] = cachedRegistry

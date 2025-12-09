@@ -35,7 +35,7 @@ class CollectorRegistryPrometheusSpec extends AsyncFunSuite with Matchers {
     testInfo[IO].run()
   }
 
-  private def testGauge[F[_] : Sync]: F[Assertion] = {
+  private def testGauge[F[_]: Sync]: F[Assertion] = {
 
     val registryP = new P.CollectorRegistry()
     val registry = CollectorRegistryPrometheus[F](registryP)
@@ -43,13 +43,15 @@ class CollectorRegistryPrometheusSpec extends AsyncFunSuite with Matchers {
     val gauge = registry.gauge(
       name = "gauge",
       help = "help_test",
-      labels = LabelNames("l1"))
+      labels = LabelNames("l1"),
+    )
 
     val initializedGauge = registry.gaugeInitialized(
       name = "gauge",
       help = "help_test",
       labels = LabelsInitialized()
-        .add("l1", Nel.of("v1", "v2", "v3")))
+        .add("l1", Nel.of("v1", "v2", "v3")),
+    )
 
     def value(value: String): F[Option[Double]] = {
       registryP.value[F]("gauge", Nel.of("l1"), Nel.of(value))
@@ -76,8 +78,7 @@ class CollectorRegistryPrometheusSpec extends AsyncFunSuite with Matchers {
     check(gauge, None) *> check(initializedGauge, Some(0.0))
   }
 
-
-  private def testCounter[F[_] : Sync]: F[Assertion] = {
+  private def testCounter[F[_]: Sync]: F[Assertion] = {
 
     val registryP = new P.CollectorRegistry()
     val registry = CollectorRegistryPrometheus[F](registryP)
@@ -85,14 +86,16 @@ class CollectorRegistryPrometheusSpec extends AsyncFunSuite with Matchers {
     val counter = registry.counter(
       name = "counter",
       help = "help_test",
-      labels = LabelNames("l1", "l2"))
+      labels = LabelNames("l1", "l2"),
+    )
 
     val initializedCounter = registry.counterInitialized(
       name = "counter",
       help = "help_test",
       labels = LabelsInitialized()
         .add("l1", Nel.of("v1", "v2", "v3"))
-        .add("l2", Nel.of("v1", "v2", "v3")))
+        .add("l2", Nel.of("v1", "v2", "v3")),
+    )
 
     def value(value1: String, value2: String): F[Option[Double]] = {
       registryP.value[F]("counter", Nel.of("l1", "l2"), Nel.of(value1, value2))
@@ -119,8 +122,7 @@ class CollectorRegistryPrometheusSpec extends AsyncFunSuite with Matchers {
     check(counter, None) *> check(initializedCounter, Some(0.0))
   }
 
-
-  private def testSummary[F[_] : Sync]: F[Assertion] = {
+  private def testSummary[F[_]: Sync]: F[Assertion] = {
 
     val registryP = new P.CollectorRegistry()
     val registry = CollectorRegistryPrometheus[F](registryP)
@@ -129,13 +131,15 @@ class CollectorRegistryPrometheusSpec extends AsyncFunSuite with Matchers {
       name = "summary",
       help = "help_test",
       labels = LabelNames(),
-      quantiles = Quantiles(Quantile(value = 0.5, error = 0.05)))
+      quantiles = Quantiles(Quantile(value = 0.5, error = 0.05)),
+    )
 
     val initializedSummary = registry.summaryInitialized(
       name = "summary",
       help = "help_test",
       labels = LabelsInitialized(),
-      quantiles = Quantiles(Quantile(value = 0.5, error = 0.05)))
+      quantiles = Quantiles(Quantile(value = 0.5, error = 0.05)),
+    )
 
     def check(summary: Resource[F, `0`[Summary[F]]]): F[Assertion] =
       summary.mapK(FunctionK.id[F]).use { summary =>
@@ -153,8 +157,7 @@ class CollectorRegistryPrometheusSpec extends AsyncFunSuite with Matchers {
     check(summary) *> check(initializedSummary)
   }
 
-
-  private def testHistogram[F[_] : Sync]: F[Assertion] = {
+  private def testHistogram[F[_]: Sync]: F[Assertion] = {
     val registryP = new P.CollectorRegistry()
     val registry = CollectorRegistryPrometheus[F](registryP)
 
@@ -162,7 +165,8 @@ class CollectorRegistryPrometheusSpec extends AsyncFunSuite with Matchers {
       name = "histogram",
       help = "help_test",
       labels = LabelNames("l1", "l2", "l3"),
-      buckets = Buckets.linear(1.0, 1.0, 3))
+      buckets = Buckets.linear(1.0, 1.0, 3),
+    )
 
     val initializedHistogram = registry.histogramInitialized(
       name = "histogram",
@@ -171,7 +175,8 @@ class CollectorRegistryPrometheusSpec extends AsyncFunSuite with Matchers {
         .add("l1", Nel.of("n1", "n2", "n3"))
         .add("l2", Nel.of("n1", "n2", "n3"))
         .add("l3", Nel.of("n1", "n2", "n3")),
-      buckets = Buckets.linear(1.0, 1.0, 3))
+      buckets = Buckets.linear(1.0, 1.0, 3),
+    )
 
     def value(metricName: String, value: String): F[Option[Double]] = {
       registryP.value[F](metricName, Nel.of("l1", "l2", "l3"), Nel.of(value, value, value))
@@ -201,7 +206,7 @@ class CollectorRegistryPrometheusSpec extends AsyncFunSuite with Matchers {
     check(histogram, None) *> check(initializedHistogram, Some(0.0))
   }
 
-  private def testInfo[F[_] : Sync]: F[Assertion] = {
+  private def testInfo[F[_]: Sync]: F[Assertion] = {
 
     val registryP = new P.CollectorRegistry()
     val registry = CollectorRegistryPrometheus[F](registryP)
@@ -209,7 +214,8 @@ class CollectorRegistryPrometheusSpec extends AsyncFunSuite with Matchers {
     val info = registry.info(
       name = "test_info",
       help = "help_test",
-      labels = LabelNames("l1"))
+      labels = LabelNames("l1"),
+    )
 
     def value(value: String): F[Option[Double]] = {
       registryP.value[F]("test_info", Nel.of("l1"), Nel.of(value))
@@ -241,14 +247,14 @@ object CollectorRegistryPrometheusSpec {
 
   implicit class CollectorRegistryOps(val self: P.CollectorRegistry) extends AnyVal {
 
-    def value[F[_] : Sync](metric: String, names: Nel[String], values: Nel[String]): F[Option[Double]] = {
+    def value[F[_]: Sync](metric: String, names: Nel[String], values: Nel[String]): F[Option[Double]] = {
       Sync[F].delay {
         Option(self.getSampleValue(metric, names.toList.toArray, values.toList.toArray): java.lang.Double)
           .map(_.toDouble)
       }
     }
 
-    def value[F[_] : Sync](metric: String): F[Double] = {
+    def value[F[_]: Sync](metric: String): F[Double] = {
       Sync[F].delay { self.getSampleValue(metric) }
     }
   }
