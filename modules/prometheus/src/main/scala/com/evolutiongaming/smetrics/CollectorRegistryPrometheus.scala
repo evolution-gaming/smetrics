@@ -194,9 +194,15 @@ object CollectorRegistryPrometheus {
         labels: A)(implicit
         magnet: LabelsMagnet[A, B],
       ): Resource[F, B[Info[F]]] = {
-        Resource.raiseError[F, B[Info[F]], Throwable](new UnsupportedOperationException("`info` is not support on Prometheus 0.x"))
+        val nameFixed =
+          if (name.endsWith("_info")) name
+          else s"${name}_info"
+        val gauge = P.Gauge
+          .build()
+          .name(nameFixed)
+          .help(help)
+        apply[A, B, P.Gauge.Child, P.Gauge, P.Gauge.Builder, Info[F]](gauge, magnet.names(labels), List.empty)
       }
-
     }
   }
 
@@ -254,21 +260,33 @@ object CollectorRegistryPrometheus {
 
   private implicit def summeryChildPrometheusToSummery[F[_] : Sync]: P.Summary.Child => Summary[F] = (a: P.Summary.Child) => {
     new Summary[F] {
-      def observe(value: Double) = Sync[F].delay { a.observe(value) }
+      def observe(value: Double): F[Unit] = Sync[F].delay { a.observe(value) }
     }
   }
 
 
   private implicit def histogramPrometheusToHistogram[F[_] : Sync]: P.Histogram => Histogram[F] = (a: P.Histogram) => {
     new Histogram[F] {
-      def observe(value: Double) = Sync[F].delay { a.observe(value) }
+      def observe(value: Double): F[Unit] = Sync[F].delay { a.observe(value) }
     }
   }
 
 
   private implicit def histogramChildPrometheusToHistogram[F[_] : Sync]: P.Histogram.Child => Histogram[F] = (a: P.Histogram.Child) => {
     new Histogram[F] {
-      def observe(value: Double) = Sync[F].delay { a.observe(value) }
+      def observe(value: Double): F[Unit] = Sync[F].delay { a.observe(value) }
+    }
+  }
+
+  private implicit def gaugePrometheusToInfo[F[_]: Sync]: P.Gauge => Info[F] = (a: P.Gauge) => {
+    new Info[F] {
+      def set(): F[Unit] = Sync[F].delay { a.set(1d) }
+    }
+  }
+
+  private implicit def gaugeChildPrometheusToInfo[F[_]: Sync]: P.Gauge.Child => Info[F] = (a: P.Gauge.Child) => {
+    new Info[F] {
+      def set(): F[Unit] = Sync[F].delay { a.set(1d) }
     }
   }
 }
