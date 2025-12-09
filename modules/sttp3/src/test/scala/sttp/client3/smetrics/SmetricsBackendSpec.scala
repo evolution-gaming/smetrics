@@ -1,7 +1,6 @@
 package sttp.client3.smetrics
 
 import cats.data.NonEmptyList
-import cats.effect.Ref
 import cats.effect.*
 import cats.syntax.all.*
 import com.evolutiongaming.smetrics.IOSuite.*

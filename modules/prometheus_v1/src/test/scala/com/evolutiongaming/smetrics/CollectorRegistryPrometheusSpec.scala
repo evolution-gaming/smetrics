@@ -1,8 +1,7 @@
 package com.evolutiongaming.smetrics
 
 import cats.arrow.FunctionK
-import cats.data.OptionT
-import cats.data.NonEmptyList as Nel
+import cats.data.{OptionT, NonEmptyList as Nel}
 import cats.effect.*
 import cats.syntax.all.*
 import com.evolutiongaming.smetrics.IOSuite.*
