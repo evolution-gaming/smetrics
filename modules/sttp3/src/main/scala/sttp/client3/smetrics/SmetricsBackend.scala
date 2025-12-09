@@ -2,8 +2,7 @@ package sttp.client3.smetrics
 
 import cats.*
 import cats.data.NonEmptyList
-import cats.effect.Resource
-import cats.effect.kernel.Clock
+import cats.effect.{Clock, Resource}
 import cats.syntax.all.*
 import com.evolutiongaming.catshelper.MeasureDuration
 import com.evolutiongaming.smetrics.*

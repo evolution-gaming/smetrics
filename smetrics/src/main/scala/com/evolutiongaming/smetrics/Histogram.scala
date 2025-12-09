@@ -1,6 +1,6 @@
 package com.evolutiongaming.smetrics
 
-import cats.implicits.*
+import cats.syntax.all.*
 import cats.{Applicative, ~>}
 
 trait Histogram[F[_]] {

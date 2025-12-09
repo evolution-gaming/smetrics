@@ -2,7 +2,7 @@ package com.evolutiongaming.smetrics
 
 import cats.data.Kleisli
 import cats.effect.MonadCancelThrow
-import cats.implicits.*
+import cats.syntax.all.*
 import com.evolutiongaming.catshelper.MeasureDuration
 import doobie.free.connection.ConnectionOp
 import doobie.util.transactor.{Interpreter, Transactor}
