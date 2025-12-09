@@ -19,7 +19,7 @@ lazy val commonSettings = Seq(
   organizationHomepage := Some(url("https://evolution.com")),
   versionPolicyIntention := Compatibility.BinaryCompatible,
   scalaVersion := crossScalaVersions.value.head,
-  crossScalaVersions := Seq("2.13.16", "3.3.5"),
+  crossScalaVersions := Seq("2.13.18", "3.3.7"),
   publishTo := Some(Resolver.evolutionReleases),
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
   Compile / doc / scalacOptions += "-no-link-warnings")
@@ -36,7 +36,7 @@ lazy val root = (project
     publish / skip := true,
     name := "smetrics-parent"
   )
-  aggregate(smetrics, prometheus, http4s, doobie, prometheus_v1))
+  aggregate(smetrics, prometheus, http4s, doobie, prometheus_v1, logback, sttp3))
 
 lazy val smetrics = (project
   in file("smetrics")
@@ -52,7 +52,7 @@ lazy val smetrics = (project
     libraryDependencies ++= crossSettings(
       scalaVersion.value,
       if3 = Nil,
-      if2 = List(compilerPlugin("org.typelevel" % "kind-projector" % "0.13.3" cross CrossVersion.full))
+      if2 = List(compilerPlugin("org.typelevel" % "kind-projector" % "0.13.4" cross CrossVersion.full))
     ),
     scalacOptions ++= crossSettings(
       scalaVersion.value,
@@ -89,6 +89,20 @@ lazy val prometheus_v1 = (project
   )
 )
 
+lazy val logback = (project
+  in file("modules/logback")
+  settings commonSettings
+  dependsOn smetrics % "compile->compile;test->test"
+  settings (
+    name := "smetrics-logback",
+    libraryDependencies ++= Seq(
+      Dependencies.PrometheusV1.core,
+      Dependencies.Logback.classic
+    ),
+    versionPolicyCheck / skip := true
+  )
+)
+
 lazy val http4s = (project
   in file("modules/http4s")
   settings commonSettings
@@ -109,5 +123,18 @@ lazy val doobie = (project
   libraryDependencies ++= Seq(
     Dependencies.doobie,
     `cats-helper`)
+  )
+)
+
+lazy val sttp3 = (project
+  in file("modules/sttp3")
+  settings commonSettings
+  dependsOn(smetrics % "compile->compile;test->test")
+  settings(
+    name := "smetrics-sttp3",
+    libraryDependencies ++= Seq(
+      "com.softwaremill.sttp.client3" %% "core" % "3.11.0",
+      "com.softwaremill.sttp.client3" %% "cats" % "3.11.0" % Test,
+    )
   )
 )
