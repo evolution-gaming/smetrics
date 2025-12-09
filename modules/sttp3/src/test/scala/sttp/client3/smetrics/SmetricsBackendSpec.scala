@@ -413,6 +413,19 @@ object SmetricsBackendSpec {
         labels: A
     )(implicit magnet: LabelsMagnetInitialized[A, B]): Resource[IO, B[Summary[IO]]] =
       summary(name, help, quantiles, labels)(magnet)
+
+    override def info[A, B[_]](
+        name: String,
+        help: String,
+        labels: A
+    )(implicit magnet: LabelsMagnet[A, B]): Resource[IO, B[Info[IO]]] =
+      Resource.pure {
+        magnet.withValues { labelValues =>
+          new Info[IO] {
+            override def set(): IO[Unit] = record(name, "info", labelValues, "set", 0d)
+          }
+        }
+      }
   }
 
   object InMemoryCollectorRegistry {
