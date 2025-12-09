@@ -27,48 +27,48 @@ object LabelNames {
 
   case object `0` extends LabelNames {
 
-    def toList = List.empty
+    def toList: List[String] = List.empty
   }
 
 
   final case class `1`(name1: String) extends LabelNames {
 
-    def toList = List(name1)
+    def toList: List[String] = List(name1)
   }
 
 
   final case class `2`(name1: String, name2: String) extends LabelNames {
 
-    def toList = List(name1, name2)
+    def toList: List[String] = List(name1, name2)
   }
 
 
   final case class `3`(name1: String, name2: String, name3: String) extends LabelNames {
 
-    def toList = List(name1, name2, name3)
+    def toList: List[String] = List(name1, name2, name3)
   }
 
 
   final case class `4`(name1: String, name2: String, name3: String, name4: String) extends LabelNames {
 
-    def toList = List(name1, name2, name3, name4)
+    def toList: List[String] = List(name1, name2, name3, name4)
   }
 
 
   final case class `5`(name1: String, name2: String, name3: String, name4: String, name5: String) extends LabelNames {
 
-    def toList = List(name1, name2, name3, name4, name5)
+    def toList: List[String] = List(name1, name2, name3, name4, name5)
   }
 
 
   final case class `6`(name1: String, name2: String, name3: String, name4: String, name5: String, name6: String) extends LabelNames {
 
-    def toList = List(name1, name2, name3, name4, name5, name6)
+    def toList: List[String] = List(name1, name2, name3, name4, name5, name6)
   }
 
 
   final case class `7`(name1: String, name2: String, name3: String, name4: String, name5: String, name6: String, name7: String) extends LabelNames {
 
-    def toList = List(name1, name2, name3, name4, name5, name6, name7)
+    def toList: List[String] = List(name1, name2, name3, name4, name5, name6, name7)
   }
 }

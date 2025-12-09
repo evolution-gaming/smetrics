@@ -26,12 +26,11 @@ class CollectorRegistryCachedSpec extends AnyWordSpec with Matchers {
               _ <- g1.labels("foo").inc()
               _ <- g2.labels("bar").inc()
               r <- pr.write004
-            } yield
-              r shouldBe
-                """# HELP foo bar
+            } yield r shouldBe
+              """# HELP foo bar
                   |# TYPE foo gauge
-                  |foo{baz="bar",} 1.0
-                  |foo{baz="foo",} 1.0
+                  |foo{baz="bar"} 1.0
+                  |foo{baz="foo"} 1.0
                   |""".stripMargin
         }
         .unsafeRunSync()
@@ -102,22 +101,22 @@ class CollectorRegistryCachedSpec extends AnyWordSpec with Matchers {
 
         t1 = for {
           c <- cr
-          _ <- d1.complete({}).toResource
+          _ <- d1.complete {}.toResource
           _ <- d2.get.toResource
         } yield c
         f1 <- t1.use_.start
 
         t2 = d1.get.toResource >> cr
         r2 <- t2.allocated
-        _ <- r2._1.labels("aaa").inc()
-        _ <- d2.complete({})
+        _  <- r2._1.labels("aaa").inc()
+        _  <- d2.complete {}
         // resource t2 NOT finalized!
 
         o1 <- f1.join
-        _ <- o1.embed(IO.unit)
+        _  <- o1.embed(IO.unit)
 
         c0 <- ref.get
-        _ <- r2._2
+        _  <- r2._2
         c1 <- ref.get
       } yield {
         c0.contains("foo") shouldBe true
@@ -140,12 +139,11 @@ class CollectorRegistryCachedSpec extends AnyWordSpec with Matchers {
               _ <- c1.labels("foo").inc()
               _ <- c2.labels("bar").inc()
               r <- pr.write004
-            } yield
-              r shouldBe
-                """# HELP foo bar
-                   |# TYPE foo counter
-                   |foo{baz="bar",} 1.0
-                   |foo{baz="foo",} 1.0
+            } yield r shouldBe
+              """# HELP foo_total bar
+                   |# TYPE foo_total counter
+                   |foo_total{baz="bar"} 1.0
+                   |foo_total{baz="foo"} 1.0
                    |""".stripMargin
         }
         .unsafeRunSync()
@@ -158,13 +156,13 @@ class CollectorRegistryCachedSpec extends AnyWordSpec with Matchers {
           "foo",
           "bar",
           Quantiles.Empty,
-          LabelNames("baz")
+          LabelNames("baz"),
         )
         s2 <- pr.registry.summary(
           "foo",
           "bar",
           Quantiles.Empty,
-          LabelNames("baz")
+          LabelNames("baz"),
         )
       } yield (pr, s1, s2)
       res
@@ -174,14 +172,13 @@ class CollectorRegistryCachedSpec extends AnyWordSpec with Matchers {
               _ <- s1.labels("foo").observe(42d)
               _ <- s2.labels("bar").observe(42d)
               r <- pr.write004
-            } yield
-              r shouldBe
-                """# HELP foo bar
+            } yield r shouldBe
+              """# HELP foo bar
                   |# TYPE foo summary
-                  |foo_count{baz="bar",} 1.0
-                  |foo_sum{baz="bar",} 42.0
-                  |foo_count{baz="foo",} 1.0
-                  |foo_sum{baz="foo",} 42.0
+                  |foo_count{baz="bar"} 1
+                  |foo_sum{baz="bar"} 42.0
+                  |foo_count{baz="foo"} 1
+                  |foo_sum{baz="foo"} 42.0
                   |""".stripMargin
         }
         .unsafeRunSync()
@@ -194,13 +191,13 @@ class CollectorRegistryCachedSpec extends AnyWordSpec with Matchers {
           "foo",
           "bar",
           Buckets(NonEmptyList.one(42d)),
-          LabelNames("baz")
+          LabelNames("baz"),
         )
         h2 <- pr.registry.histogram(
           "foo",
           "bar",
           Buckets(NonEmptyList.one(42d)),
-          LabelNames("baz")
+          LabelNames("baz"),
         )
       } yield (pr, h1, h2)
       res
@@ -210,18 +207,17 @@ class CollectorRegistryCachedSpec extends AnyWordSpec with Matchers {
               _ <- h1.labels("foo").observe(42d)
               _ <- h2.labels("bar").observe(42d)
               r <- pr.write004
-            } yield
-              r shouldBe
-                """# HELP foo bar
+            } yield r shouldBe
+              """# HELP foo bar
                   |# TYPE foo histogram
-                  |foo_bucket{baz="bar",le="42.0",} 1.0
-                  |foo_bucket{baz="bar",le="+Inf",} 1.0
-                  |foo_count{baz="bar",} 1.0
-                  |foo_sum{baz="bar",} 42.0
-                  |foo_bucket{baz="foo",le="42.0",} 1.0
-                  |foo_bucket{baz="foo",le="+Inf",} 1.0
-                  |foo_count{baz="foo",} 1.0
-                  |foo_sum{baz="foo",} 42.0
+                  |foo_bucket{baz="bar",le="42.0"} 1
+                  |foo_bucket{baz="bar",le="+Inf"} 1
+                  |foo_count{baz="bar"} 1
+                  |foo_sum{baz="bar"} 42.0
+                  |foo_bucket{baz="foo",le="42.0"} 1
+                  |foo_bucket{baz="foo",le="+Inf"} 1
+                  |foo_count{baz="foo"} 1
+                  |foo_sum{baz="foo"} 42.0
                   |""".stripMargin
         }
         .unsafeRunSync()
@@ -251,8 +247,8 @@ class CollectorRegistryCachedSpec extends AnyWordSpec with Matchers {
             } yield r shouldBe
               """# HELP foo_info bar
                 |# TYPE foo_info gauge
-                |foo_info{baz="bar",} 1.0
-                |foo_info{baz="foo",} 1.0
+                |foo_info{baz="bar"} 1
+                |foo_info{baz="foo"} 1
                 |""".stripMargin
         }
         .unsafeRunSync()
