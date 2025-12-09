@@ -1,7 +1,7 @@
 package com.evolutiongaming.smetrics
 
-import cats.effect._
-import cats.syntax.all._
+import cats.effect.*
+import cats.syntax.all.*
 import io.prometheus.metrics.expositionformats.PrometheusTextFormatWriter
 import io.prometheus.metrics.model.registry.PrometheusRegistry
 

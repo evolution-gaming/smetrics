@@ -1,15 +1,5 @@
 import Dependencies.*
 
-def crossSettings[T](scalaVersion: String, if3: Seq[T], if2: Seq[T]): Seq[T] = {
-  CrossVersion.partialVersion(scalaVersion) match {
-    case Some((3, _)) => if3
-    case Some((2, 12 | 13)) => if2
-    case _ => Nil
-  }
-}
-
-def is3(scalaVersion: String): Boolean = scalaVersion.startsWith("3")
-
 lazy val commonSettings = Seq(
   organization := "com.evolutiongaming",
   homepage := Some(url("https://github.com/evolution-gaming/smetrics")),
@@ -17,8 +7,34 @@ lazy val commonSettings = Seq(
   organizationName := "Evolution",
   organizationHomepage := Some(url("https://evolution.com")),
   versionPolicyIntention := Compatibility.BinaryCompatible,
-  scalaVersion := crossScalaVersions.value.head,
   crossScalaVersions := Seq("2.13.18", "3.3.7"),
+  scalaVersion := crossScalaVersions.value.head,
+  scalacOptions ++= Seq(
+    "-release:17",
+    "-deprecation",
+  ),
+  scalacOptions ++= crossSettings(
+    scalaVersion.value,
+    if3 = Seq(
+      "-Ykind-projector:underscores",
+
+      // disable new brace-less syntax:
+      // https://alexn.org/blog/2022/10/24/scala-3-optional-braces/
+      "-no-indent",
+
+      // improve error messages:
+      "-explain",
+      "-explain-types",
+
+      //        "-language:implicitConversions",
+    ),
+    if2 = Seq("-Xsource:3", "-P:kind-projector:underscore-placeholders"),
+  ),
+  libraryDependencies ++= crossSettings(
+    scalaVersion.value,
+    if3 = Nil,
+    if2 = List(compilerPlugin("org.typelevel" % "kind-projector" % "0.13.4" cross CrossVersion.full)),
+  ),
   publishTo := Some(Resolver.evolutionReleases),
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
   Compile / doc / scalacOptions += "-no-link-warnings",
@@ -50,16 +66,6 @@ lazy val smetrics = project
       Cats.effect,
       `cats-helper`,
       scalatest % Test,
-    ),
-    libraryDependencies ++= crossSettings(
-      scalaVersion.value,
-      if3 = Nil,
-      if2 = List(compilerPlugin("org.typelevel" % "kind-projector" % "0.13.4" cross CrossVersion.full)),
-    ),
-    scalacOptions ++= crossSettings(
-      scalaVersion.value,
-      if3 = Seq("-Ykind-projector:underscores", "-language:implicitConversions"),
-      if2 = Seq("-Xsource:3", "-P:kind-projector:underscore-placeholders"),
     ),
   )
 
@@ -135,3 +141,11 @@ lazy val sttp3 = project
       "com.softwaremill.sttp.client3" %% "cats" % "3.11.0" % Test,
     ),
   )
+
+def crossSettings[T](scalaVersion: String, if3: Seq[T], if2: Seq[T]): Seq[T] = {
+  CrossVersion.partialVersion(scalaVersion) match {
+    case Some((3, _)) => if3
+    case Some((2, 12 | 13)) => if2
+    case _ => Nil
+  }
+}

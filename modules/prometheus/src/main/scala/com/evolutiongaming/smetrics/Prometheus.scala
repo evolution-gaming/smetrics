@@ -1,9 +1,9 @@
 package com.evolutiongaming.smetrics
 
 import cats.effect.{Concurrent, Sync}
-import cats.syntax.all._
+import cats.syntax.all.*
 import io.prometheus.client.exporter.common.TextFormat
-import io.prometheus.{client => P}
+import io.prometheus.client as P
 
 import java.io.StringWriter
 

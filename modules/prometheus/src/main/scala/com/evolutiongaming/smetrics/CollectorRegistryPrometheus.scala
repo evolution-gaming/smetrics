@@ -1,10 +1,10 @@
 package com.evolutiongaming.smetrics
 
 import cats.effect.{Resource, Sync}
-import cats.implicits._
-import com.evolutiongaming.smetrics.CollectionHelper._
+import cats.implicits.*
+import com.evolutiongaming.smetrics.CollectionHelper.*
 import io.prometheus.client.Collector
-import io.prometheus.{client => P}
+import io.prometheus.client as P
 
 object CollectorRegistryPrometheus {
 

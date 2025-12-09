@@ -33,7 +33,7 @@ trait HttpMetrics[F[_]] {
 now let's implement `HttpMetrics` using `CollectorRegistry`
 
 ```scala
-  import com.evolutiongaming.smetrics.MetricsHelper._
+  import com.evolutiongaming.smetrics.MetricsHelper.*
   import com.evolutiongaming.smetrics.{CollectorRegistry, LabelNames, Quantile, Quantiles}
 
   def httpMetrics[F[_]: Monad](collectorRegistry: CollectorRegistry[F]): Resource[F, HttpMetrics[F]] = {

@@ -2,9 +2,9 @@ package com.evolutiongaming.smetrics
 
 import cats.Monad
 import cats.data.NonEmptyList
-import cats.effect._
-import cats.syntax.all._
-import com.evolutiongaming.smetrics.MetricsHelper._
+import cats.effect.*
+import cats.syntax.all.*
+import com.evolutiongaming.smetrics.MetricsHelper.*
 import org.http4s.metrics.TerminationType.{Abnormal, Canceled, Error, Timeout}
 import org.http4s.metrics.{MetricsOps, TerminationType}
 import org.http4s.{Method, Status}

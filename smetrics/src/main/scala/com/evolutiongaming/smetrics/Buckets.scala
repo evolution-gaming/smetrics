@@ -1,6 +1,6 @@
 package com.evolutiongaming.smetrics
 
-import cats.data.{NonEmptyList => Nel}
+import cats.data.NonEmptyList as Nel
 
 import scala.annotation.tailrec
 

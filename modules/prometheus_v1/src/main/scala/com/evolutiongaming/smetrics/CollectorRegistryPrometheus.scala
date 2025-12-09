@@ -1,10 +1,10 @@
 package com.evolutiongaming.smetrics
 
-import cats.effect._
-import cats.effect.syntax.all._
-import cats.syntax.all._
-import com.evolutiongaming.smetrics.CollectionHelper._
-import io.prometheus.metrics.core.{metrics => P}
+import cats.effect.*
+import cats.effect.syntax.all.*
+import cats.syntax.all.*
+import com.evolutiongaming.smetrics.CollectionHelper.*
+import io.prometheus.metrics.core.metrics as P
 import io.prometheus.metrics.model.registry.PrometheusRegistry
 
 object CollectorRegistryPrometheus {
@@ -15,7 +15,7 @@ object CollectorRegistryPrometheus {
       metric: M,
       initialLabelValues: List[List[String]],
     )(implicit
-      adapter: PrometheusMetricAdapter[M, _],
+      adapter: PrometheusMetricAdapter[M, ?],
     ): Resource[F, Unit] =
       if (initialLabelValues.nonEmpty) {
         val combinations = initialLabelValues.combine
@@ -27,7 +27,7 @@ object CollectorRegistryPrometheus {
       } else Resource.unit
 
     def build[M <: P.MetricWithFixedMetadata](
-      builder: P.MetricWithFixedMetadata.Builder[_, M],
+      builder: P.MetricWithFixedMetadata.Builder[?, M],
     ): Resource[F, M] =
       Sync[F].delay(builder.build()).toResource
 
@@ -42,7 +42,7 @@ object CollectorRegistryPrometheus {
     }
 
     def apply[A, B[_], M <: P.MetricWithFixedMetadata, R](
-      builder: P.MetricWithFixedMetadata.Builder[_, M],
+      builder: P.MetricWithFixedMetadata.Builder[?, M],
       initialLabelValues: List[List[String]],
     )(implicit
       adapter: PrometheusMetricAdapter[M, R],

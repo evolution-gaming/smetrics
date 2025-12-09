@@ -1,19 +1,19 @@
 package com.evolutiongaming.smetrics
 
 import cats.arrow.FunctionK
-import cats.data.{NonEmptyList => Nel}
+import cats.data.NonEmptyList as Nel
 import cats.effect.{IO, Resource, Sync}
-import cats.implicits._
-import com.evolutiongaming.smetrics.IOSuite._
+import cats.implicits.*
+import com.evolutiongaming.smetrics.IOSuite.*
 import com.evolutiongaming.smetrics.LabelValues.`0`
-import io.prometheus.{client => P}
+import io.prometheus.client as P
 import org.scalatest.Assertion
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
 class CollectorRegistryPrometheusSpec extends AsyncFunSuite with Matchers {
 
-  import CollectorRegistryPrometheusSpec._
+  import CollectorRegistryPrometheusSpec.*
 
   test("gauge") {
     testGauge[IO].run()

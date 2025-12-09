@@ -2,22 +2,22 @@ package com.evolutiongaming.smetrics
 
 import cats.arrow.FunctionK
 import cats.data.OptionT
-import cats.data.{NonEmptyList => Nel}
-import cats.effect._
-import cats.syntax.all._
-import com.evolutiongaming.smetrics.IOSuite._
+import cats.data.NonEmptyList as Nel
+import cats.effect.*
+import cats.syntax.all.*
+import com.evolutiongaming.smetrics.IOSuite.*
 import com.evolutiongaming.smetrics.LabelValues.`0`
 import io.prometheus.metrics.model.registry.PrometheusRegistry
 import org.scalatest.Assertion
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 import scala.util.control.NoStackTrace
 
 class CollectorRegistryPrometheusSpec extends AsyncFunSuite with Matchers {
 
-  import CollectorRegistryPrometheusSpec._
+  import CollectorRegistryPrometheusSpec.*
 
   test("gauge") {
     testGauge[IO].run()
@@ -230,7 +230,7 @@ object CollectorRegistryPrometheusSpec {
 
   implicit class CollectorRegistryOps(val self: PrometheusRegistry) extends AnyVal {
 
-    import io.prometheus.metrics.model.snapshots._
+    import io.prometheus.metrics.model.snapshots.*
 
     private def findDataPoint[F[_]: Sync](metric: String, names: List[String], values: List[String])
       : F[Option[DataPointSnapshot]] =

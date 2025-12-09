@@ -1,6 +1,6 @@
 package com.evolutiongaming.smetrics
 
-import com.evolutiongaming.smetrics.CollectionHelper._
+import com.evolutiongaming.smetrics.CollectionHelper.*
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers
 

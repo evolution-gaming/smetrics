@@ -1,14 +1,14 @@
 package sttp.client3.smetrics
 
-import cats._
+import cats.*
 import cats.data.NonEmptyList
 import cats.effect.Resource
 import cats.effect.kernel.Clock
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.catshelper.MeasureDuration
-import com.evolutiongaming.smetrics._
-import sttp.client3._
-import sttp.client3.listener._
+import com.evolutiongaming.smetrics.*
+import sttp.client3.*
+import sttp.client3.listener.*
 
 /**
  * Factory for creating STTP backends that record metrics using smetrics.
@@ -27,7 +27,7 @@ import sttp.client3.listener._
  *
  * {{{
  * import cats.effect.IO
- * import sttp.client3._
+ * import sttp.client3.*
  * import sttp.client3.smetrics.SmetricsBackend
  * import com.evolutiongaming.smetrics.CollectorRegistry
  *
@@ -57,7 +57,7 @@ import sttp.client3.listener._
  * recorded for each request:
  *
  * {{{
- * import com.evolutiongaming.smetrics._
+ * import com.evolutiongaming.smetrics.*
  *
  * val backend = SmetricsBackend(
  *   delegate = underlyingBackend,
@@ -150,7 +150,7 @@ object SmetricsBackend {
    * @return
    *   The HTTP method in uppercase (e.g., "GET", "POST")
    */
-  def methodLabel(req: Request[_, _]): String = req.method.method.toUpperCase
+  def methodLabel(req: Request[?, ?]): String = req.method.method.toUpperCase
 
   /**
    * Returns the status label for a response, used for metric labeling.
@@ -168,7 +168,7 @@ object SmetricsBackend {
    * @return
    *   The status label string (e.g., "2xx", "404")
    */
-  def statusLabel(rsp: Response[_]): String = {
+  def statusLabel(rsp: Response[?]): String = {
     val code = rsp.code
     if (code.isInformational) "1xx"
     else if (code.isSuccess) "2xx"
@@ -209,26 +209,26 @@ object SmetricsBackend {
    */
   def apply[F[_]: Clock: Monad, P](
     delegate: SttpBackend[F, P],
-    latencyMapper: Request[_, _] => Option[Histogram[F]],
-    inProgressMapper: Request[_, _] => Option[Gauge[F]],
-    successMapper: (Request[_, _], Response[_]) => Option[Counter[F]],
-    errorMapper: (Request[_, _], Response[_]) => Option[Counter[F]],
-    failureMapper: (Request[_, _], Throwable) => Option[Counter[F]],
-    requestSizeMapper: Request[_, _] => Option[Summary[F]],
-    responseSizeMapper: (Request[_, _], Response[_]) => Option[Summary[F]],
+    latencyMapper: Request[?, ?] => Option[Histogram[F]],
+    inProgressMapper: Request[?, ?] => Option[Gauge[F]],
+    successMapper: (Request[?, ?], Response[?]) => Option[Counter[F]],
+    errorMapper: (Request[?, ?], Response[?]) => Option[Counter[F]],
+    failureMapper: (Request[?, ?], Throwable) => Option[Counter[F]],
+    requestSizeMapper: Request[?, ?] => Option[Summary[F]],
+    responseSizeMapper: (Request[?, ?], Response[?]) => Option[Summary[F]],
   ): SttpBackend[F, P] = {
     // redirects should be handled before prometheus
     new FollowRedirectsBackend[F, P](
       new ListenerBackend[F, P, State[F]](
         delegate,
         new PrometheusListener[F](
-          latencyMapper: Request[_, _] => Option[Histogram[F]],
-          inProgressMapper: Request[_, _] => Option[Gauge[F]],
-          successMapper: (Request[_, _], Response[_]) => Option[Counter[F]],
-          errorMapper: (Request[_, _], Response[_]) => Option[Counter[F]],
-          failureMapper: (Request[_, _], Throwable) => Option[Counter[F]],
-          requestSizeMapper: Request[_, _] => Option[Summary[F]],
-          responseSizeMapper: (Request[_, _], Response[_]) => Option[Summary[F]],
+          latencyMapper: Request[?, ?] => Option[Histogram[F]],
+          inProgressMapper: Request[?, ?] => Option[Gauge[F]],
+          successMapper: (Request[?, ?], Response[?]) => Option[Counter[F]],
+          errorMapper: (Request[?, ?], Response[?]) => Option[Counter[F]],
+          failureMapper: (Request[?, ?], Throwable) => Option[Counter[F]],
+          requestSizeMapper: Request[?, ?] => Option[Summary[F]],
+          responseSizeMapper: (Request[?, ?], Response[?]) => Option[Summary[F]],
         ),
       ),
     )
@@ -256,7 +256,7 @@ object SmetricsBackend {
    * Example usage:
    * {{{
    * import cats.effect.IO
-   * import sttp.client3._
+   * import sttp.client3.*
    * import sttp.client3.smetrics.SmetricsBackend
    * import com.evolutiongaming.smetrics.CollectorRegistry
    *
@@ -391,13 +391,13 @@ object SmetricsBackend {
    *   The effect type
    */
   private[this] class PrometheusListener[F[_]: Clock: Monad](
-    latencyMapper: Request[_, _] => Option[Histogram[F]],
-    inProgressMapper: Request[_, _] => Option[Gauge[F]],
-    successMapper: (Request[_, _], Response[_]) => Option[Counter[F]],
-    errorMapper: (Request[_, _], Response[_]) => Option[Counter[F]],
-    failureMapper: (Request[_, _], Throwable) => Option[Counter[F]],
-    requestSizeMapper: Request[_, _] => Option[Summary[F]],
-    responseSizeMapper: (Request[_, _], Response[_]) => Option[Summary[F]],
+    latencyMapper: Request[?, ?] => Option[Histogram[F]],
+    inProgressMapper: Request[?, ?] => Option[Gauge[F]],
+    successMapper: (Request[?, ?], Response[?]) => Option[Counter[F]],
+    errorMapper: (Request[?, ?], Response[?]) => Option[Counter[F]],
+    failureMapper: (Request[?, ?], Throwable) => Option[Counter[F]],
+    requestSizeMapper: Request[?, ?] => Option[Summary[F]],
+    responseSizeMapper: (Request[?, ?], Response[?]) => Option[Summary[F]],
   ) extends RequestListener[F, State[F]] {
 
     /**
@@ -415,7 +415,7 @@ object SmetricsBackend {
      * @return
      *   State containing cleanup effects to run after the request completes
      */
-    override def beforeRequest(request: Request[_, _]): F[State[F]] = {
+    override def beforeRequest(request: Request[?, ?]): F[State[F]] = {
       val latency = for {
         latency <- latencyMapper(request)
       } yield for {
@@ -461,7 +461,7 @@ object SmetricsBackend {
      *   Effect completing the metric recording
      */
     override def requestException(
-      request: Request[_, _],
+      request: Request[?, ?],
       state: State[F],
       e: Exception,
     ): F[Unit] = {
@@ -496,8 +496,8 @@ object SmetricsBackend {
      *   Effect completing the metric recording
      */
     override def requestSuccessful(
-      request: Request[_, _],
-      response: Response[_],
+      request: Request[?, ?],
+      response: Response[?],
       state: State[F],
     ): F[Unit] = {
       for {

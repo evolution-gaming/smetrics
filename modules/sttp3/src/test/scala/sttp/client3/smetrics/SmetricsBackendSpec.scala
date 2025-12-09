@@ -2,16 +2,16 @@ package sttp.client3.smetrics
 
 import cats.data.NonEmptyList
 import cats.effect.Ref
-import cats.effect._
-import cats.syntax.all._
-import com.evolutiongaming.smetrics.IOSuite._
-import com.evolutiongaming.smetrics._
+import cats.effect.*
+import cats.syntax.all.*
+import com.evolutiongaming.smetrics.IOSuite.*
+import com.evolutiongaming.smetrics.*
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
-import sttp.client3._
-import sttp.client3.impl.cats.implicits._
+import sttp.client3.*
+import sttp.client3.impl.cats.implicits.*
 import sttp.client3.smetrics.SmetricsBackend.{DefaultBuckets, MetricNames, methodLabel, statusLabel}
-import sttp.client3.smetrics.SmetricsBackendSpec._
+import sttp.client3.smetrics.SmetricsBackendSpec.*
 import sttp.client3.testing.SttpBackendStub
 import sttp.model.{Header, StatusCode}
 
@@ -172,7 +172,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
         ).withContentLength(html.length.toLong),
       )
 
-      def label(name: String)(req: Request[_, _]): String =
+      def label(name: String)(req: Request[?, ?]): String =
         req.tag(name).map(_.toString).getOrElse("unknown")
 
       val backendLabel = label("backend")(_)
