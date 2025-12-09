@@ -227,6 +227,37 @@ class CollectorRegistryCachedSpec extends AnyWordSpec with Matchers {
         .unsafeRunSync()
     }
 
+    "create multiple infos with same name" in {
+      val res = for {
+        pr <- Prometheus.default[IO].withCaching.toResource
+        i1 <- pr.registry.info(
+          "foo",
+          "bar",
+          LabelNames("baz"),
+        )
+        i2 <- pr.registry.info(
+          "foo",
+          "bar",
+          LabelNames("baz"),
+        )
+      } yield (pr, i1, i2)
+      res
+        .use {
+          case (pr, i1, i2) =>
+            for {
+              _ <- i1.labels("foo").set()
+              _ <- i2.labels("bar").set()
+              r <- pr.write004
+            } yield r shouldBe
+              """# HELP foo_info bar
+                |# TYPE foo_info gauge
+                |foo_info{baz="bar",} 1.0
+                |foo_info{baz="foo",} 1.0
+                |""".stripMargin
+        }
+        .unsafeRunSync()
+    }
+
   }
 
 }
