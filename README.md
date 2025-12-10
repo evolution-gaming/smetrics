@@ -95,6 +95,108 @@ Right now there are two options available:
 Return type is `Resource[F, _]` rather than `F[_]` because most often underlying metrics implementation upon a call registers your metrics with shared registry.
 Hence `release` hook of `Resource` being used in order to de-register particular metrics from shared registry.
 
+## Kafka module
+`smetrics-prometheus-kafka` module allows defining Prometheus collectors to obtain Kafka client's internal metrics
+(ones collected by a producer/consumer themselves).
+### `KafkaMetricsCollector`
+See the example:
+```scala
+val collectorRegistry: CollectorRegistry = ???
+val consumer: Consumer[IO, String, String] = ???
+val collector = new KafkaMetricsCollector[IO](consumer.clientMetrics)
+collectorRegistry.register(collector)
+```
+In the example above `KafkaMetricsCollector` will call `consumer.clientMetrics` each time the registry attempts to
+collect metric samples
+
+#### Multiple clients in the same VM
+Creating multiple instances of `KafkaMetricsCollector` for different producers or consumers and attempting
+to register them in `CollectorRegistry` will cause an error as they will contain metrics with the same name
+which is prohibited by `CollectorRegistry`. There are multiple ways to mitigate the issue:
+1. Using prefixes  
+`KafkaMetricsCollector` allows passing an optional prefix which can be prepended to all metrics' names. 
+This will result in multiple sets of metrics, e.g. `{prefix_1}_producer_metrics_request_size_avg` and 
+`{prefix_2}_producer_metrics_request_size_avg` 
+2. Combining the output of `clientMetrics` methods  
+See the example below:
+```scala
+val collectorRegistry: CollectorRegistry = ???
+val consumer1: Consumer[IO, String, String] = ???
+val consumer2: Consumer[IO, String, String] = ???
+val getAllMetrics: IO[Seq[ClientMetric[IO]]] = for {
+  metrics1 <- consumer1.clientMetrics
+  metrics2 <- consumer2.clientMetrics
+} yield metrics1 ++ metrics2
+val collector = new KafkaMetricsCollector[IO](getAllMetrics)
+collectorRegistry.register(collector)
+```
+Note that this approach will result in duplicate metrics in case clients have the same configuration, e.g. when two
+consumers have the same `client.id`:
+```
+consumer_metrics_connection_creation_rate{client_id="client1",} 0.0
+consumer_metrics_connection_creation_rate{client_id="client1",} 0.0
+```
+3. Using `KafkaMetricsRegistry` described below.
+
+### `KafkaMetricsRegistry`
+`KafkaMetricsRegistry` is an abstraction which aims to simplify gathering metrics from multiple clients in the same VM.
+It allows 'registering' functions obtaining metrics from different clients, aggregating them into a single list
+of metrics when collected. This allows defining clients in different code units with the only requirement of registering
+them in `KafkaMetricsRegistry`. The registered functions will be saved in a `Ref` and invoked every time metrics 
+are collected.   
+Please note that `KafkaMetricsRegistry` doesn't extend Prometheus' `Collector`, thus it's still
+necessary to create a single instance of `KafkaMetricsCollector` and register it with `CollectorRegistry`.  
+There are two ways of using `KafkaMetricsRegistry`:
+1. Manual registration of each client
+```scala
+val collectorRegistry: CollectorRegistry = ???
+val consumerOf: ConsumerOf[F] = ???
+for {
+  kafkaRegistry  <- KafkaMetricsRegistry.ref[IO].toResource
+  // Manually register each client after creating
+  consumer1      <- consumerOf.apply[K, V](config)
+  _              <- kafkaRegistry.register(consumer1.clientMetrics)
+  consumer2      <- consumerOf.apply[K, V](config)
+  _              <- kafkaRegistry.register(consumer2.clientMetrics)
+  // Create and register a single collector
+  kafkaCollector = new KafkaMetricsCollector[F](kafkaRegistry.collectAll)
+  _              <- F.delay(prometheusRegistry.register(kafkaCollector)).toResource
+} yield ()
+```
+2. Wrapping `ConsumerOf` or `ProducerOf` with a syntax extension
+```scala
+import com.evolutiongaming.smetrics.kafka.syntax._
+
+val collectorRegistry: CollectorRegistry = ???
+val consumerConfig1 =
+  ConsumerConfig.Default.copy(
+    groupId = Some("group1"), 
+    common = CommonConfig.Default.copy(clientId = Some("client1"))
+  )
+
+val consumerConfig2 =
+  ConsumerConfig.Default.copy(
+    groupId = Some("group2"), 
+    common = CommonConfig.Default.copy(clientId = Some("client2"))
+  )
+
+for {
+  kafkaRegistry  <- KafkaMetricsRegistry.ref[F].toResource
+  // All consumers created with this factory will automatically register their metrics functions to `kafkaRegistry`
+  consumerOf     = ConsumerOf.apply1[F]().withNativeMetrics(kafkaRegistry)
+  consumer1      <- consumerOf.apply[String, String](consumerConfig1)
+  consumer2      <- consumerOf.apply[String, String](consumerConfig2)
+  // Create and register a single collector
+  kafkaCollector = new KafkaMetricsCollector[F](kafkaRegistry.collectAll)
+  _              <- F.delay(prometheusRegistry.register(kafkaCollector)).toResource
+} yield ()
+```
+#### Metrics duplication
+`KafkaMetricsRegistry` deduplicates metrics by default. It can be turned off by using a different factory method
+accepting `allowDuplicates` parameter.
+When using it in the default mode it's important to use different `client.id` values for different clients inside a 
+single VM, otherwise only one of them will be picked (order is not guaranteed). 
+
 ## Setup
 
 ```scala
