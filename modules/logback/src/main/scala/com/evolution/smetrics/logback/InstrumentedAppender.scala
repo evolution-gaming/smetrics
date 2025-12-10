@@ -19,17 +19,17 @@ class InstrumentedAppender extends UnsynchronizedAppenderBase[ILoggingEvent] {
 
 }
 
-object InstrumentedAppender {
-  val Counter =
+private object InstrumentedAppender {
+  private val Counter =
     PrometheusCounter
       .builder()
       .name("logback_appender_total")
       .help("Logback log statements at various log levels")
       .labelNames("level")
       .register()
-  val TraceCounter = Counter.labelValues("trace")
-  val DebugCounter = Counter.labelValues("debug")
-  val InfoCounter = Counter.labelValues("info")
-  val WarnCounter = Counter.labelValues("warn")
-  val ErrorCounter = Counter.labelValues("error")
+  private val TraceCounter = Counter.labelValues("trace")
+  private val DebugCounter = Counter.labelValues("debug")
+  private val InfoCounter = Counter.labelValues("info")
+  private val WarnCounter = Counter.labelValues("warn")
+  private val ErrorCounter = Counter.labelValues("error")
 }
