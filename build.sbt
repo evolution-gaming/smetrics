@@ -44,14 +44,12 @@ lazy val commonSettings = Seq(
 
 ThisBuild / mimaBinaryIssueFilters ++= Seq(
   // add mima check exceptions here, like:
-  // TODO remove after 2.4.0 release
-  ProblemFilters.exclude[ReversedMissingMethodProblem]("com.evolutiongaming.smetrics.CollectorRegistry.info"),
+//  ProblemFilters.exclude[ReversedMissingMethodProblem]("com.evolutiongaming.smetrics.CollectorRegistry.info"),
 )
 
 ThisBuild / libraryDependencySchemes ++= Seq(
-  // TODO remove after 2.4.0 release
-  "org.tpolecat" %% "doobie-core" % VersionScheme.Always,
-  "org.tpolecat" %% "doobie-free" % VersionScheme.Always,
+  // add mima check overrides for RC-level libraries, like:
+//  "org.tpolecat" %% "doobie-core" % VersionScheme.Always,
 )
 
 val alias: Seq[sbt.Def.Setting[?]] =
