@@ -417,9 +417,10 @@ object SmetricsBackend {
     override def beforeRequest(request: Request[?, ?]): F[State[F]] = {
       val latency = for {
         latency <- latencyMapper(request)
-      } yield for {
-        duration <- MeasureDuration[F].start
-      } yield duration.flatMap { duration => latency.observe(duration.toUnit(scala.concurrent.duration.SECONDS)) }
+      } yield
+        for {
+          duration <- MeasureDuration[F].start
+        } yield duration.flatMap { duration => latency.observe(duration.toUnit(scala.concurrent.duration.SECONDS)) }
 
       val inProgress = inProgressMapper(request)
 

@@ -3,8 +3,8 @@ package sttp.client3.smetrics
 import cats.data.NonEmptyList
 import cats.effect.*
 import cats.syntax.all.*
-import com.evolutiongaming.smetrics.IOSuite.*
 import com.evolutiongaming.smetrics.*
+import com.evolutiongaming.smetrics.IOSuite.*
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 import sttp.client3.*

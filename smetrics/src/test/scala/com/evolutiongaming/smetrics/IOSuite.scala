@@ -1,7 +1,7 @@
 package com.evolutiongaming.smetrics
 
-import cats.effect.{Clock, IO}
 import cats.effect.unsafe.implicits.global
+import cats.effect.{Clock, IO}
 import com.evolutiongaming.catshelper.{FromFuture, MeasureDuration}
 import org.scalatest.Succeeded
 
