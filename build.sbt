@@ -44,7 +44,6 @@ lazy val commonSettings = Seq(
 ThisBuild / mimaBinaryIssueFilters ++= Seq(
   // add mima check exceptions here, like:
   // TODO remove after 2.4.0 release
-  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolutiongaming.smetrics.CollectorRegistry.const"),
   ProblemFilters.exclude[ReversedMissingMethodProblem]("com.evolutiongaming.smetrics.CollectorRegistry.info"),
 )
 

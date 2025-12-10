@@ -107,6 +107,15 @@ object CollectorRegistry {
     )
   }
 
+  @deprecated(message = "use next `const` with extra `Info` argument", since = "2.4.0")
+  def const[F[_]: Monad](
+    gauge: F[Gauge[F]],
+    counter: F[Counter[F]],
+    summary: F[Summary[F]],
+    histogram: F[Histogram[F]],
+  ): CollectorRegistry[F] =
+    const(gauge, counter, summary, histogram, Info.empty[F].pure[F])
+
   def const[F[_]: Monad](
     gauge: F[Gauge[F]],
     counter: F[Counter[F]],
@@ -224,7 +233,7 @@ object CollectorRegistry {
         apply(histogram1)
       }
 
-      override def info[A, B[_]](
+      def info[A, B[_]](
         name: String,
         help: String,
         labels: A,
