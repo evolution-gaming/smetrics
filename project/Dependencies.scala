@@ -16,7 +16,7 @@ object Dependencies {
   }
 
   object PrometheusV1 {
-    private val version = "1.3.10"
+    private val version = "1.4.3"
     val core = "io.prometheus" % "prometheus-metrics-core" % version
     val formats = "io.prometheus" % "prometheus-metrics-exposition-textformats" % version
   }
