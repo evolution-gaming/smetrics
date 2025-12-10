@@ -1,6 +1,6 @@
 package com.evolutiongaming.smetrics
 
-import cats.data.{NonEmptyList => Nel}
+import cats.data.NonEmptyList as Nel
 
 import scala.annotation.tailrec
 
@@ -22,7 +22,6 @@ object Buckets {
     val buckets = loop(Nel.one(start))
     Buckets(buckets.reverse)
   }
-
 
   def exponential(start: Double, factor: Double, count: Int): Buckets = {
 

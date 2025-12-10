@@ -1,6 +1,6 @@
 package com.evolutiongaming.smetrics
 
-import cats.implicits._
+import cats.syntax.all.*
 import cats.{Applicative, ~>}
 
 trait Summary[F[_]] {
@@ -10,10 +10,9 @@ trait Summary[F[_]] {
 
 object Summary {
 
-  def empty[F[_] : Applicative]: Summary[F] = const(().pure[F])
+  def empty[F[_]: Applicative]: Summary[F] = const(().pure[F])
 
   def const[F[_]](unit: F[Unit]): Summary[F] = (_: Double) => unit
-
 
   implicit class SummaryOps[F[_]](val self: Summary[F]) extends AnyVal {
 

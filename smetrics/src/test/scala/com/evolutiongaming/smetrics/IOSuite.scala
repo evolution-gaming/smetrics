@@ -1,7 +1,6 @@
 package com.evolutiongaming.smetrics
 
-import cats.effect.IO
-import cats.effect.kernel.Clock
+import cats.effect.{Clock, IO}
 import cats.effect.unsafe.implicits.global
 import com.evolutiongaming.catshelper.{FromFuture, MeasureDuration}
 import org.scalatest.Succeeded
@@ -15,7 +14,7 @@ object IOSuite {
   implicit val executor: ExecutionContextExecutor = ExecutionContext.global
 
   implicit val measureDuration: MeasureDuration[IO] = MeasureDuration.fromClock(Clock[IO])
-  implicit val fromFutureIO: FromFuture[IO]     = FromFuture.lift[IO]
+  implicit val fromFutureIO: FromFuture[IO] = FromFuture.lift[IO]
 
   def runIO[A](io: IO[A], timeout: FiniteDuration = Timeout): Future[Succeeded.type] = {
     io.timeout(timeout).as(Succeeded).unsafeToFuture()

@@ -3,33 +3,33 @@ package com.evolution.smetrics.logback
 import ch.qos.logback.classic.Level
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.UnsynchronizedAppenderBase
-import io.prometheus.metrics.core.metrics.{Counter => PrometheusCounter}
+import io.prometheus.metrics.core.metrics.Counter as PrometheusCounter
 
 class InstrumentedAppender extends UnsynchronizedAppenderBase[ILoggingEvent] {
 
   override protected def append(eventObject: ILoggingEvent): Unit =
-    eventObject.getLevel() match {
+    eventObject.getLevel match {
       case Level.TRACE => InstrumentedAppender.TraceCounter.inc()
       case Level.DEBUG => InstrumentedAppender.DebugCounter.inc()
-      case Level.INFO  => InstrumentedAppender.InfoCounter.inc()
-      case Level.WARN  => InstrumentedAppender.WarnCounter.inc()
+      case Level.INFO => InstrumentedAppender.InfoCounter.inc()
+      case Level.WARN => InstrumentedAppender.WarnCounter.inc()
       case Level.ERROR => InstrumentedAppender.ErrorCounter.inc()
-      case _           => ()
+      case _ => ()
     }
 
 }
 
-object InstrumentedAppender {
-  val Counter =
+private object InstrumentedAppender {
+  private val Counter =
     PrometheusCounter
       .builder()
       .name("logback_appender_total")
       .help("Logback log statements at various log levels")
       .labelNames("level")
       .register()
-  val TraceCounter = Counter.labelValues("trace")
-  val DebugCounter = Counter.labelValues("debug")
-  val InfoCounter  = Counter.labelValues("info")
-  val WarnCounter  = Counter.labelValues("warn")
-  val ErrorCounter = Counter.labelValues("error")
+  private val TraceCounter = Counter.labelValues("trace")
+  private val DebugCounter = Counter.labelValues("debug")
+  private val InfoCounter = Counter.labelValues("info")
+  private val WarnCounter = Counter.labelValues("warn")
+  private val ErrorCounter = Counter.labelValues("error")
 }

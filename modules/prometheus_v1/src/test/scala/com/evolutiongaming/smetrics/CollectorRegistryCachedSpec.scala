@@ -2,7 +2,7 @@ package com.evolutiongaming.smetrics
 
 import cats.data.NonEmptyList
 import cats.effect.{Deferred, IO}
-import cats.syntax.all._
+import cats.syntax.all.*
 import com.evolutiongaming.catshelper.SerialRef
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -108,15 +108,15 @@ class CollectorRegistryCachedSpec extends AnyWordSpec with Matchers {
 
         t2 = d1.get.toResource >> cr
         r2 <- t2.allocated
-        _  <- r2._1.labels("aaa").inc()
-        _  <- d2.complete {}
+        _ <- r2._1.labels("aaa").inc()
+        _ <- d2.complete {}
         // resource t2 NOT finalized!
 
         o1 <- f1.join
-        _  <- o1.embed(IO.unit)
+        _ <- o1.embed(IO.unit)
 
         c0 <- ref.get
-        _  <- r2._2
+        _ <- r2._2
         c1 <- ref.get
       } yield {
         c0.contains("foo") shouldBe true

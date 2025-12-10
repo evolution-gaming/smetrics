@@ -1,11 +1,11 @@
 package com.evolutiongaming.smetrics
 
-import cats.effect._
-import cats.syntax.all._
-
-import io.prometheus.metrics.model.registry.PrometheusRegistry
-import java.io.ByteArrayOutputStream
+import cats.effect.*
+import cats.syntax.all.*
 import io.prometheus.metrics.expositionformats.PrometheusTextFormatWriter
+import io.prometheus.metrics.model.registry.PrometheusRegistry
+
+import java.io.ByteArrayOutputStream
 
 trait Prometheus[F[_]] {
 
@@ -22,7 +22,7 @@ object Prometheus { prometheus =>
       override val registry: CollectorRegistry[F] = CollectorRegistryPrometheus(collectorRegistry)
 
       override val write004: F[String] = Sync[F].delay {
-        val out              = new ByteArrayOutputStream()
+        val out = new ByteArrayOutputStream()
         val textFormatWriter = PrometheusTextFormatWriter.builder().setIncludeCreatedTimestamps(false).build()
         textFormatWriter.write(out, collectorRegistry.scrape())
         out.toString("UTF-8")
@@ -33,7 +33,10 @@ object Prometheus { prometheus =>
 
   implicit class Ops[F[_]](val prometheus: Prometheus[F]) extends AnyVal {
 
-    def withCaching(implicit F: Concurrent[F]): F[Prometheus[F]] =
+    def withCaching(
+      implicit
+      F: Concurrent[F],
+    ): F[Prometheus[F]] =
       prometheus.registry.withCaching.map { cachedRegistry =>
         new Prometheus[F] {
           override def registry: CollectorRegistry[F] = cachedRegistry

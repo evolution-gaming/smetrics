@@ -1,6 +1,6 @@
 package com.evolutiongaming.smetrics
 
-import cats.implicits._
+import cats.syntax.all.*
 
 object CollectionHelper {
 
@@ -17,16 +17,16 @@ object CollectionHelper {
      */
     def combine: List[List[A]] = {
       values match {
-        case Nil                        => List.empty
-        case values :: Nil              => values.map(List(_))
+        case Nil => List.empty
+        case values :: Nil => values.map(List(_))
         case values1 :: values2 :: tail =>
           tail.foldLeft(
-            values1.map2(values2)(List(_, _))
-          )(
-            (accumulator, values) => for {
+            values1.map2(values2)(List(_, _)),
+          )((accumulator, values) =>
+            for {
               value1 <- accumulator
               value2 <- values
-            } yield value1 :+ value2
+            } yield value1 :+ value2,
           )
       }
     }
