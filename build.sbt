@@ -26,10 +26,11 @@ lazy val commonSettings = Seq(
       // improve error messages:
       "-explain",
       "-explain-types",
-
-      //        "-language:implicitConversions",
     ),
-    if2 = Seq("-Xsource:3", "-P:kind-projector:underscore-placeholders"),
+    if2 = Seq(
+      "-Xsource:3",
+      "-P:kind-projector:underscore-placeholders",
+    ),
   ),
   libraryDependencies ++= crossSettings(
     scalaVersion.value,
