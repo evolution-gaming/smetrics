@@ -1,4 +1,5 @@
 import Dependencies.*
+import com.typesafe.tools.mima.core.*
 
 lazy val commonSettings = Seq(
   organization := "com.evolutiongaming",
@@ -38,6 +39,19 @@ lazy val commonSettings = Seq(
   publishTo := Some(Resolver.evolutionReleases),
   licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
   Compile / doc / scalacOptions += "-no-link-warnings",
+)
+
+ThisBuild / mimaBinaryIssueFilters ++= Seq(
+  // add mima check exceptions here, like:
+  // TODO remove after 2.4.0 release
+  ProblemFilters.exclude[DirectMissingMethodProblem]("com.evolutiongaming.smetrics.CollectorRegistry.const"),
+  ProblemFilters.exclude[ReversedMissingMethodProblem]("com.evolutiongaming.smetrics.CollectorRegistry.info"),
+)
+
+ThisBuild / libraryDependencySchemes ++= Seq(
+  // TODO remove after 2.4.0 release
+  "org.tpolecat" %% "doobie-core" % VersionScheme.Always,
+  "org.tpolecat" %% "doobie-free" % VersionScheme.Always,
 )
 
 val alias: Seq[sbt.Def.Setting[?]] =
