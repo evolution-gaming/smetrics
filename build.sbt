@@ -163,8 +163,7 @@ lazy val sttp4 = project
     libraryDependencies ++= Seq(
       Dependencies.Sttp4.core,
       Dependencies.Sttp4.catsBackend % Test,
-    ),
-    versionPolicyCheck / skip := true,
+    )
   )
 
 def crossSettings[T](scalaVersion: String, if3: Seq[T], if2: Seq[T]): Seq[T] = {
