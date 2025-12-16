@@ -10,7 +10,6 @@ import com.evolutiongaming.smetrics.IOSuite.*
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
 import sttp.client4.*
-import sttp.client4.ResponseException.DeserializationException
 import sttp.client4.impl.cats.implicits.*
 import sttp.client4.smetrics.SmetricsBackend.{DefaultBuckets, MetricNames, methodLabel, statusLabel}
 import sttp.client4.smetrics.SmetricsBackendSpec.*
@@ -177,8 +176,8 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
       def label(name: String): String =
         s"labelFor$name"
 
-      val backendLabel = label("backend")
-      val resourceLabel = label("resource")
+      val backendLabel = label("Backend")
+      val resourceLabel = label("Resource")
 
       val prefix = "client_"
       val resource = for {
@@ -262,7 +261,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
             case MetricEvent(
                   "client_http_client_request_size_bytes",
                   "summary",
-                  List("POST", backendLabel, resourceLabel),
+                  List("POST", "labelForBackend", "labelForResource"),
                   "observe",
                   2.0,
                 ) =>
@@ -270,7 +269,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
             case MetricEvent(
                   "client_http_client_requests_active",
                   "gauge",
-                  List("POST", backendLabel, resourceLabel),
+                  List("POST", "labelForBackend", "labelForResource"),
                   "inc",
                   1.0,
                 ) =>
@@ -278,7 +277,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
             case MetricEvent(
                   "client_http_client_request_duration_seconds",
                   "histogram",
-                  List("POST", backendLabel, resourceLabel),
+                  List("POST", "labelForBackend", "labelForResource"),
                   "observe",
                   `[0, 0.1]`(_),
                 ) =>
@@ -286,7 +285,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
             case MetricEvent(
                   "client_http_client_requests_active",
                   "gauge",
-                  List("POST", backendLabel, resourceLabel),
+                  List("POST", "labelForBackend", "labelForResource"),
                   "dec",
                   1.0,
                 ) =>
@@ -294,7 +293,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
             case MetricEvent(
                   "client_http_client_response_size_bytes",
                   "summary",
-                  List("POST", "2xx", backendLabel, resourceLabel),
+                  List("POST", "2xx", "labelForBackend", "labelForResource"),
                   "observe",
                   7.0,
                 ) =>
@@ -302,7 +301,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
             case MetricEvent(
                   "client_http_client_requests_success",
                   "counter",
-                  List("POST", "2xx", backendLabel, resourceLabel),
+                  List("POST", "2xx", "labelForBackend", "labelForResource"),
                   "inc",
                   1.0,
                 ) =>

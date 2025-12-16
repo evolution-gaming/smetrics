@@ -65,7 +65,7 @@ lazy val root = project
     publish / skip := true,
     name := "smetrics-parent",
   )
-  .aggregate(smetrics, prometheus, http4s, doobie, prometheus_v1, logback, sttp3)
+  .aggregate(smetrics, prometheus, http4s, doobie, prometheus_v1, logback, sttp3, sttp4)
 
 lazy val smetrics = project
   .in(file("smetrics"))
