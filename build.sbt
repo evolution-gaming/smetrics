@@ -149,8 +149,20 @@ lazy val sttp3 = project
   .settings(
     name := "smetrics-sttp3",
     libraryDependencies ++= Seq(
-      "com.softwaremill.sttp.client3" %% "core" % "3.11.0",
-      "com.softwaremill.sttp.client3" %% "cats" % "3.11.0" % Test,
+      Dependencies.Sttp3.core,
+      Dependencies.Sttp3.catsBackend % Test,
+    ),
+  )
+
+lazy val sttp4 = project
+  .in(file("modules/sttp4"))
+  .settings(commonSettings)
+  .dependsOn(smetrics % "compile->compile;test->test")
+  .settings(
+    name := "smetrics-sttp4",
+    libraryDependencies ++= Seq(
+      Dependencies.Sttp4.core,
+      Dependencies.Sttp4.catsBackend % Test,
     ),
   )
 
