@@ -23,7 +23,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
 
   def inMemoryCollectorRegistry: CollectorRegistry[IO] = CollectorRegistry.empty[IO]
 
-  private val `[0, 0.1]` = Within(0, 0.1)
+  private val `(0, 0.1]` = Within(0, 0.1)
 
   def collect[A](
     stub: BackendStub[IO] => BackendStub[IO],
@@ -66,7 +66,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
       events.collect {
         case MetricEvent("http_client_request_size_bytes", "summary", List("POST"), "observe", `reqSize`) => 1
         case MetricEvent("http_client_requests_active", "gauge", List("POST"), "inc", 1.0) => 2
-        case MetricEvent("http_client_request_duration_seconds", "histogram", List("POST"), "observe", `[0, 0.1]`(_)) =>
+        case MetricEvent("http_client_request_duration_seconds", "histogram", List("POST"), "observe", `(0, 0.1]`(_)) =>
           3
         case MetricEvent("http_client_requests_active", "gauge", List("POST"), "dec", 1.0) => 4
         case MetricEvent("http_client_response_size_bytes", "summary", List("POST", "2xx"), "observe", `rspSize`) => 5
@@ -103,7 +103,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
                 "histogram",
                 List("POST"),
                 "observe",
-                `[0, 0.1]`(_),
+                `(0, 0.1]`(_),
               ) => 3
           case MetricEvent("http_client_requests_active", "gauge", List("POST"), "dec", 1.0) => 4
           case MetricEvent("http_client_response_size_bytes", "summary", List("POST", `sts`), "observe", `rspSize`) => 5
@@ -130,7 +130,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
       events.collect {
         case MetricEvent("http_client_request_size_bytes", "summary", List("POST"), "observe", `body.length`) => 1
         case MetricEvent("http_client_requests_active", "gauge", List("POST"), "inc", 1.0) => 2
-        case MetricEvent("http_client_request_duration_seconds", "histogram", List("POST"), "observe", `[0, 0.1]`(_)) =>
+        case MetricEvent("http_client_request_duration_seconds", "histogram", List("POST"), "observe", `(0, 0.1]`(_)) =>
           3
         case MetricEvent("http_client_requests_active", "gauge", List("POST"), "dec", 1.0) => 4
         case MetricEvent("http_client_requests_failure", "counter", List("POST"), "inc", 1.0) => 5
@@ -279,7 +279,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
                   "histogram",
                   List("POST", "labelForBackend", "labelForResource"),
                   "observe",
-                  `[0, 0.1]`(_),
+                  `(0, 0.1]`(_),
                 ) =>
               3
             case MetricEvent(
@@ -466,7 +466,7 @@ object SmetricsBackendSpec {
 
   case class Within(a: Double, b: Double) {
     def unapply(value: Double): Option[Double] =
-      Option.when(value >= a && value <= b)(value)
+      Option.when(value > a && value <= b)(value)
   }
 
   implicit class ResponseOps[A](val response: Response[A]) extends AnyVal {

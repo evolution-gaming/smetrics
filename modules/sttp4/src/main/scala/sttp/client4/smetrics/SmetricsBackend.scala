@@ -439,7 +439,7 @@ object SmetricsBackend {
         for {
           recordDuration <- MeasureDuration[F].start
         } yield recordDuration.flatMap { recordDuration =>
-          duration.observe(recordDuration.toSeconds.toDouble)
+          duration.observe(recordDuration.toUnit(scala.concurrent.duration.SECONDS).toDouble)
         }
 
       val active = activeMapper(request)
