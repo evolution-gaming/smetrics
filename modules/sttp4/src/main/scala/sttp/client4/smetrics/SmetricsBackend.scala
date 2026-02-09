@@ -253,6 +253,33 @@ object SmetricsBackend {
     )
   }
 
+  def apply[F[_]: Clock: Monad: ToTry, C](
+    delegate: StreamBackend[F, C],
+    durationMapper: GenericRequest[?, ?] => Option[Histogram[F]],
+    activeMapper: GenericRequest[?, ?] => Option[Gauge[F]],
+    successMapper: (GenericRequest[?, ?], ResponseMetadata) => Option[Counter[F]],
+    errorMapper: (GenericRequest[?, ?], ResponseMetadata) => Option[Counter[F]],
+    failureMapper: (GenericRequest[?, ?], Throwable) => Option[Counter[F]],
+    requestSizeMapper: GenericRequest[?, ?] => Option[Summary[F]],
+    responseSizeMapper: (GenericRequest[?, ?], ResponseMetadata) => Option[Summary[F]],
+  ): StreamBackend[F, C] = {
+    // redirects should be handled before metrics collection
+    FollowRedirectsBackend(
+      ListenerBackend(
+        delegate = delegate,
+        listener = new SmetricsListener[F](
+          durationMapper = durationMapper,
+          activeMapper = activeMapper,
+          successMapper = successMapper,
+          errorMapper = errorMapper,
+          failureMapper = failureMapper,
+          requestSizeMapper = requestSizeMapper,
+          responseSizeMapper = responseSizeMapper,
+        ),
+      ),
+    )
+  }
+
   /**
    * Creates an STTP backend with automatic metric collection using a CollectorRegistry.
    *
@@ -306,13 +333,35 @@ object SmetricsBackend {
     prefix: Option[String] = None,
   ): Resource[F, Backend[F]] = {
     val registry = prefix.fold(collectorRegistry)(collectorRegistry.prefixed(_))
-    makeDefault(delegate, registry)
+    makeDefaultSmetricsListener(registry).map { listener =>
+      FollowRedirectsBackend(
+        ListenerBackend(
+          delegate,
+          listener,
+        ),
+      )
+    }
   }
 
-  private def makeDefault[F[_]: Clock: Monad: ToTry](
-    delegate: Backend[F],
+  def default[F[_]: Clock: Monad: ToTry, C](
+    delegate: StreamBackend[F, C],
     collectorRegistry: CollectorRegistry[F],
-  ): Resource[F, Backend[F]] =
+    prefix: Option[String],
+  ): Resource[F, StreamBackend[F, C]] = {
+    val registry = prefix.fold(collectorRegistry)(collectorRegistry.prefixed(_))
+    makeDefaultSmetricsListener(registry).map { listener =>
+      FollowRedirectsBackend(
+        ListenerBackend(
+          delegate,
+          listener,
+        ),
+      )
+    }
+  }
+
+  private def makeDefaultSmetricsListener[F[_]: Clock: Monad: ToTry](
+    collectorRegistry: CollectorRegistry[F],
+  ): Resource[F, SmetricsListener[F]] =
     for {
       duration <- collectorRegistry.histogram(
         name = MetricNames.duration,
@@ -352,23 +401,15 @@ object SmetricsBackend {
         labels = LabelNames("method", "status"),
         quantiles = Quantiles.Default,
       )
-    } yield {
-      // redirects should be handled before metrics collection
-      FollowRedirectsBackend(
-        ListenerBackend(
-          delegate,
-          new SmetricsListener[F](
-            durationMapper = { req => duration.labels(methodLabel(req)).some },
-            activeMapper = { req => active.labels(methodLabel(req)).some },
-            successMapper = { (req, rsp) => success.labels(methodLabel(req), statusLabel(rsp)).some },
-            errorMapper = { (req, rsp) => error.labels(methodLabel(req), statusLabel(rsp)).some },
-            failureMapper = { (req, _) => failure.labels(methodLabel(req)).some },
-            requestSizeMapper = { req => requestSize.labels(methodLabel(req)).some },
-            responseSizeMapper = { (req, rsp) => responseSize.labels(methodLabel(req), statusLabel(rsp)).some },
-          ),
-        ),
-      )
-    }
+    } yield new SmetricsListener[F](
+      durationMapper = { req => duration.labels(methodLabel(req)).some },
+      activeMapper = { req => active.labels(methodLabel(req)).some },
+      successMapper = { (req, rsp) => success.labels(methodLabel(req), statusLabel(rsp)).some },
+      errorMapper = { (req, rsp) => error.labels(methodLabel(req), statusLabel(rsp)).some },
+      failureMapper = { (req, _) => failure.labels(methodLabel(req)).some },
+      requestSizeMapper = { req => requestSize.labels(methodLabel(req)).some },
+      responseSizeMapper = { (req, rsp) => responseSize.labels(methodLabel(req), statusLabel(rsp)).some },
+    )
 
   /**
    * Internal state passed between request lifecycle hooks.
