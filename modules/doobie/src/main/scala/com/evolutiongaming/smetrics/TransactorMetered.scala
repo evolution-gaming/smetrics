@@ -4,8 +4,8 @@ import cats.data.Kleisli
 import cats.effect.MonadCancelThrow
 import cats.syntax.all.*
 import com.evolutiongaming.catshelper.MeasureDuration
-import doobie.free.connection.ConnectionOp
-import doobie.util.transactor.{Interpreter, Transactor}
+import org.typelevel.doobie.free.connection.ConnectionOp
+import org.typelevel.doobie.util.transactor.{Interpreter, Transactor}
 
 import java.sql.Connection
 
