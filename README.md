@@ -95,6 +95,36 @@ Right now there are two options available:
 Return type is `Resource[F, _]` rather than `F[_]` because most often underlying metrics implementation upon a call registers your metrics with shared registry.
 Hence `release` hook of `Resource` being used in order to de-register particular metrics from shared registry.
 
+## Thread pool metrics
+
+`smetrics-threads` module gauges the number of live JVM threads per thread pool as `dispatcher_threads{poolName}`.
+
+The JVM does not expose which pool a thread belongs to, so threads are attributed to pools by their name. Naming
+schemes are application specific, hence the matcher is yours to provide. Threads the matcher does not recognise are
+not reported:
+
+```scala
+  import com.evolutiongaming.smetrics.{CollectorRegistry, MeterThreads}
+
+  val poolNameOf: MeterThreads.PoolNameOf = { threadName =>
+    if (threadName.startsWith("io-compute")) Some("cats-effect") else None
+  }
+
+  def meterThreads[F[_]: Async](collectorRegistry: CollectorRegistry[F]): Resource[F, Unit] = {
+    MeterThreads.make[F](collectorRegistry, poolNameOf)
+  }
+```
+
+Threads are re-sampled every `MeterThreads.DefaultInterval`. To change the prefix, the interval, or the set of
+sampled threads, pass your own `Metrics` and thread source instead. `threads` is an effect, re-run on every sample:
+
+```scala
+  for {
+    metrics <- MeterThreads.Metrics.make[F](collectorRegistry, prefix = "custom")
+    result  <- MeterThreads.make[F](metrics, poolNameOf, threads = MeterThreads.threads[F], interval = 5.minutes)
+  } yield result
+```
+
 ## Setup
 
 ```scala
@@ -115,4 +145,10 @@ For sttp3 use `smetrics-sttp3` module:
 
 ```scala
 libraryDependencies += "com.evolutiongaming" %% "smetrics-sttp3" % "x.y.z"
+```
+
+For thread pool metrics use `smetrics-threads` module:
+
+```scala
+libraryDependencies += "com.evolutiongaming" %% "smetrics-threads" % "x.y.z"
 ```
