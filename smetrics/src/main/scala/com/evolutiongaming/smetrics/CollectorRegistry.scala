@@ -424,7 +424,7 @@ object CollectorRegistry {
         name = name,
         names = magnet.names(labels),
         ofType = "gauge",
-        create = registry.gauge(name, help, labels)(magnet),
+        create = registry.gaugeInitialized(name, help, labels)(magnet),
       )
 
     override def counter[A, B[_]](
@@ -452,7 +452,7 @@ object CollectorRegistry {
         name = name,
         names = magnet.names(labels),
         ofType = "counter",
-        create = registry.counter(name, help, labels)(magnet),
+        create = registry.counterInitialized(name, help, labels)(magnet),
       )
 
     override def summary[A, B[_]](
@@ -482,7 +482,7 @@ object CollectorRegistry {
         name = name,
         names = magnet.names(labels),
         ofType = "summary",
-        create = registry.summary(name, help, quantiles, labels)(magnet),
+        create = registry.summaryInitialized(name, help, quantiles, labels)(magnet),
       )
 
     override def histogram[A, B[_]](
@@ -512,7 +512,7 @@ object CollectorRegistry {
         name = name,
         names = magnet.names(labels),
         ofType = "histogram",
-        create = registry.histogram(name, help, buckets, labels)(magnet),
+        create = registry.histogramInitialized(name, help, buckets, labels)(magnet),
       )
 
     override def info[A, B[_]](
