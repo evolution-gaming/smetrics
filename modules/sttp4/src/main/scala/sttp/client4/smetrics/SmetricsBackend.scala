@@ -51,7 +51,7 @@ import scala.concurrent.duration.{FiniteDuration, SECONDS}
  * val backend: Backend[IO] = ???
  * val registry: CollectorRegistry[IO] = ???
  *
- * SmetricsBackend.default(backend, registry).use { backend => ??? }
+ * SmetricsBackend.default1(backend, registry).use { backend => ??? }
  * }}}
  *
  * ==Custom Metric Prefixes==
@@ -59,7 +59,7 @@ import scala.concurrent.duration.{FiniteDuration, SECONDS}
  * You can customize the metric name prefix:
  *
  * {{{
- * SmetricsBackend.default(backend, registry, prefix = Some("myapp_"))
+ * SmetricsBackend.default1(backend, registry, prefix = Some("myapp_"))
  * }}}
  *
  * This will generate metrics like:
@@ -237,7 +237,7 @@ object SmetricsBackend {
    * @return
    *   A new backend that records metrics according to the provided mappers
    */
-  def apply[F[_]: Clock: Monad: ToTry](
+  def apply[F[_]: Clock: MonadThrow: ToTry](
     delegate: Backend[F],
     durationMapper: (GenericRequest[?, ?], Either[Throwable, ResponseMetadata]) => Option[Histogram[F]],
     activeMapper: GenericRequest[?, ?] => Option[Gauge[F]],
@@ -259,12 +259,13 @@ object SmetricsBackend {
           failureMapper = failureMapper,
           requestSizeMapper = requestSizeMapper,
           responseSizeMapper = responseSizeMapper,
+          discardFailure = discardMetricFailure,
         ),
       ),
     )
   }
 
-  def apply[F[_]: Clock: Monad: ToTry, C](
+  def apply[F[_]: Clock: MonadThrow: ToTry, C](
     delegate: StreamBackend[F, C],
     durationMapper: (GenericRequest[?, ?], Either[Throwable, ResponseMetadata]) => Option[Histogram[F]],
     activeMapper: GenericRequest[?, ?] => Option[Gauge[F]],
@@ -286,6 +287,7 @@ object SmetricsBackend {
           failureMapper = failureMapper,
           requestSizeMapper = requestSizeMapper,
           responseSizeMapper = responseSizeMapper,
+          discardFailure = discardMetricFailure,
         ),
       ),
     )
@@ -293,7 +295,9 @@ object SmetricsBackend {
 
   /**
    * Binary-compatible predecessor of the outcome-aware overload, kept for released API
-   * compatibility.
+   * compatibility. Unlike that overload, it cannot isolate failures of individual metric effects
+   * (that requires `MonadThrow`, which this method cannot demand without breaking binary
+   * compatibility).
    */
   @deprecated("Use the overload with an outcome-aware durationMapper", "2.4.6")
   def apply[F[_]: Clock: Monad: ToTry](
@@ -305,23 +309,32 @@ object SmetricsBackend {
     failureMapper: (GenericRequest[?, ?], Throwable) => Option[Counter[F]],
     requestSizeMapper: GenericRequest[?, ?] => Option[Summary[F]],
     responseSizeMapper: (GenericRequest[?, ?], ResponseMetadata) => Option[Summary[F]],
-  ): Backend[F] =
-    apply(
-      delegate = delegate,
-      durationMapper = {
-        (request: GenericRequest[?, ?], _: Either[Throwable, ResponseMetadata]) => durationMapper(request)
-      },
-      activeMapper = activeMapper,
-      successMapper = successMapper,
-      errorMapper = errorMapper,
-      failureMapper = failureMapper,
-      requestSizeMapper = requestSizeMapper,
-      responseSizeMapper = responseSizeMapper,
+  ): Backend[F] = {
+    // redirects should be handled before metrics collection
+    FollowRedirectsBackend(
+      ListenerBackend(
+        delegate = delegate,
+        listener = new SmetricsListener[F](
+          durationMapper = {
+            (request: GenericRequest[?, ?], _: Either[Throwable, ResponseMetadata]) => durationMapper(request)
+          },
+          activeMapper = activeMapper,
+          successMapper = successMapper,
+          errorMapper = errorMapper,
+          failureMapper = failureMapper,
+          requestSizeMapper = requestSizeMapper,
+          responseSizeMapper = responseSizeMapper,
+          discardFailure = identity,
+        ),
+      ),
     )
+  }
 
   /**
    * Binary-compatible predecessor of the outcome-aware overload, kept for released API
-   * compatibility.
+   * compatibility. Unlike that overload, it cannot isolate failures of individual metric effects
+   * (that requires `MonadThrow`, which this method cannot demand without breaking binary
+   * compatibility).
    */
   @deprecated("Use the overload with an outcome-aware durationMapper", "2.4.6")
   def apply[F[_]: Clock: Monad: ToTry, C](
@@ -333,19 +346,26 @@ object SmetricsBackend {
     failureMapper: (GenericRequest[?, ?], Throwable) => Option[Counter[F]],
     requestSizeMapper: GenericRequest[?, ?] => Option[Summary[F]],
     responseSizeMapper: (GenericRequest[?, ?], ResponseMetadata) => Option[Summary[F]],
-  ): StreamBackend[F, C] =
-    apply(
-      delegate = delegate,
-      durationMapper = {
-        (request: GenericRequest[?, ?], _: Either[Throwable, ResponseMetadata]) => durationMapper(request)
-      },
-      activeMapper = activeMapper,
-      successMapper = successMapper,
-      errorMapper = errorMapper,
-      failureMapper = failureMapper,
-      requestSizeMapper = requestSizeMapper,
-      responseSizeMapper = responseSizeMapper,
+  ): StreamBackend[F, C] = {
+    // redirects should be handled before metrics collection
+    FollowRedirectsBackend(
+      ListenerBackend(
+        delegate = delegate,
+        listener = new SmetricsListener[F](
+          durationMapper = {
+            (request: GenericRequest[?, ?], _: Either[Throwable, ResponseMetadata]) => durationMapper(request)
+          },
+          activeMapper = activeMapper,
+          successMapper = successMapper,
+          errorMapper = errorMapper,
+          failureMapper = failureMapper,
+          requestSizeMapper = requestSizeMapper,
+          responseSizeMapper = responseSizeMapper,
+          discardFailure = identity,
+        ),
+      ),
     )
+  }
 
   /**
    * Creates an STTP backend with automatic metric collection using a CollectorRegistry.
@@ -376,7 +396,7 @@ object SmetricsBackend {
    * val backend: Backend[IO] = ???
    * val registry: CollectorRegistry[IO] = ???
    *
-   * SmetricsBackend.default(backend, registry, prefix = Some("myapp_")).use { metricsBackend =>
+   * SmetricsBackend.default1(backend, registry, prefix = Some("myapp_")).use { metricsBackend =>
    *   basicRequest
    *     .get(uri"https://api.example.com/users")
    *     .send(metricsBackend)
@@ -394,13 +414,53 @@ object SmetricsBackend {
    * @return
    *   A Resource that manages the metrics-enabled backend lifecycle
    */
+  def default1[F[_]: Clock: MonadThrow: ToTry](
+    delegate: Backend[F],
+    collectorRegistry: CollectorRegistry[F],
+    prefix: Option[String] = None,
+  ): Resource[F, Backend[F]] = {
+    val registry = prefix.fold(collectorRegistry)(collectorRegistry.prefixed(_))
+    makeDefaultSmetricsListener(registry, discardMetricFailure).map { listener =>
+      FollowRedirectsBackend(
+        ListenerBackend(
+          delegate,
+          listener,
+        ),
+      )
+    }
+  }
+
+  def default1[F[_]: Clock: MonadThrow: ToTry, C](
+    delegate: StreamBackend[F, C],
+    collectorRegistry: CollectorRegistry[F],
+    prefix: Option[String],
+  ): Resource[F, StreamBackend[F, C]] = {
+    val registry = prefix.fold(collectorRegistry)(collectorRegistry.prefixed(_))
+    makeDefaultSmetricsListener(registry, discardMetricFailure).map { listener =>
+      FollowRedirectsBackend(
+        ListenerBackend(
+          delegate,
+          listener,
+        ),
+      )
+    }
+  }
+
+  /**
+   * Binary-compatible predecessor of [[default1]], kept for released API compatibility. Unlike
+   * [[default1]], it cannot isolate failures of individual metric effects: that requires
+   * `MonadThrow`, which this method cannot demand without breaking binary compatibility, and a
+   * `MonadThrow` overload under the same name would make every existing call site ambiguous
+   * (overloads differing only in implicit parameters cannot be resolved).
+   */
+  @deprecated("Use default1, which also isolates metric recording failures", "2.4.6")
   def default[F[_]: Clock: Monad: ToTry](
     delegate: Backend[F],
     collectorRegistry: CollectorRegistry[F],
     prefix: Option[String] = None,
   ): Resource[F, Backend[F]] = {
     val registry = prefix.fold(collectorRegistry)(collectorRegistry.prefixed(_))
-    makeDefaultSmetricsListener(registry).map { listener =>
+    makeDefaultSmetricsListener(registry, identity[F[Unit]]).map { listener =>
       FollowRedirectsBackend(
         ListenerBackend(
           delegate,
@@ -410,13 +470,21 @@ object SmetricsBackend {
     }
   }
 
+  /**
+   * Binary-compatible predecessor of [[default1]], kept for released API compatibility. Unlike
+   * [[default1]], it cannot isolate failures of individual metric effects: that requires
+   * `MonadThrow`, which this method cannot demand without breaking binary compatibility, and a
+   * `MonadThrow` overload under the same name would make every existing call site ambiguous
+   * (overloads differing only in implicit parameters cannot be resolved).
+   */
+  @deprecated("Use default1, which also isolates metric recording failures", "2.4.6")
   def default[F[_]: Clock: Monad: ToTry, C](
     delegate: StreamBackend[F, C],
     collectorRegistry: CollectorRegistry[F],
     prefix: Option[String],
   ): Resource[F, StreamBackend[F, C]] = {
     val registry = prefix.fold(collectorRegistry)(collectorRegistry.prefixed(_))
-    makeDefaultSmetricsListener(registry).map { listener =>
+    makeDefaultSmetricsListener(registry, identity[F[Unit]]).map { listener =>
       FollowRedirectsBackend(
         ListenerBackend(
           delegate,
@@ -426,8 +494,14 @@ object SmetricsBackend {
     }
   }
 
+  // metric recording must never fail the request, hence individual metric failures are
+  // discarded and the remaining metrics are still recorded
+  private def discardMetricFailure[F[_]: MonadThrow]: F[Unit] => F[Unit] =
+    _.handleError(_ => ())
+
   private def makeDefaultSmetricsListener[F[_]: Clock: Monad: ToTry](
     collectorRegistry: CollectorRegistry[F],
+    discardFailure: F[Unit] => F[Unit],
   ): Resource[F, SmetricsListener[F]] =
     for {
       duration <- collectorRegistry.histogram(
@@ -476,6 +550,7 @@ object SmetricsBackend {
       failureMapper = { (req, _) => failure.labels(methodLabel(req)).some },
       requestSizeMapper = { req => requestSize.labels(methodLabel(req)).some },
       responseSizeMapper = { (req, rsp) => responseSize.labels(methodLabel(req), statusLabel(rsp)).some },
+      discardFailure = discardFailure,
     )
 
   /**
@@ -519,6 +594,10 @@ object SmetricsBackend {
     failureMapper: (GenericRequest[?, ?], Throwable) => Option[Counter[F]],
     requestSizeMapper: GenericRequest[?, ?] => Option[Summary[F]],
     responseSizeMapper: (GenericRequest[?, ?], ResponseMetadata) => Option[Summary[F]],
+    // how to handle a failing metric effect: [[discardMetricFailure]] for the MonadThrow-based
+    // entry points, identity (failures propagate, pre-2.4.6 behavior) for the released
+    // Monad-based ones which cannot demand MonadThrow without breaking binary compatibility
+    discardFailure: F[Unit] => F[Unit],
   ) extends RequestListener[F, State[F]] {
 
     private val unit = Applicative[F].unit
@@ -555,16 +634,6 @@ object SmetricsBackend {
         durationMapper(request, outcome).fold(unit) { histogram =>
           elapsed.flatMap { elapsed => histogram.observe(elapsed.toUnit(SECONDS)) }
         }
-
-    // metric recording must never fail the request: when the effect type can handle errors
-    // (which holds for every practical F, e.g. IO), individual metric failures are discarded
-    // and the remaining metrics are still recorded; a MonadThrow constraint would express this
-    // in the signature, but adding it would break binary compatibility of the released API
-    private val discardFailure: F[Unit] => F[Unit] =
-      Monad[F] match {
-        case monadError: MonadError[F, Any] @unchecked => effect => monadError.handleError(effect)(_ => ())
-        case _ => identity
-      }
 
     private def recordAll(effects: F[Unit]*): F[Unit] =
       effects.toList.traverse_(discardFailure)
