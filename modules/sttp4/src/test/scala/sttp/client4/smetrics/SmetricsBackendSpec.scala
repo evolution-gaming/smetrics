@@ -2,6 +2,7 @@ package sttp.client4.smetrics
 
 import cats.data.NonEmptyList
 import cats.effect.*
+import cats.effect.std.Semaphore
 import cats.effect.unsafe.implicits.global
 import cats.syntax.all.*
 import com.evolutiongaming.catshelper.ToTry
@@ -337,10 +338,10 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
 
     runIO {
       for {
-        gate <- Deferred[IO, Unit]
+        gate <- Semaphore[IO](0)
         registry <- InMemoryCollectorRegistry.make
         stubBackend = BackendStub[IO](sttp.monad.MonadError[IO]).whenAnyRequest
-          .thenRespondF(gate.get.as(ResponseStub.adjust("", StatusCode.Ok)))
+          .thenRespondF(gate.acquire.as(ResponseStub.adjust("", StatusCode.Ok)))
         backendAllocated <- SmetricsBackend.default1(stubBackend, registry).allocated
         (backend, release) = backendAllocated
         fibers <- basicRequest.get(`/`).send(backend).start.replicateA(requestsNumber)
@@ -349,7 +350,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
           activeOps(inFlightEvents, "inc") shouldBe requestsNumber
           activeOps(inFlightEvents, "dec") shouldBe 0
         }
-        _ <- gate.complete(())
+        _ <- gate.releaseN(requestsNumber.toLong)
         _ <- fibers.traverse_(_.join)
         finalEvents <- registry.events
         _ <- release
@@ -369,10 +370,9 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
 
     runIO {
       for {
-        gate <- Deferred[IO, Unit]
         registry <- InMemoryCollectorRegistry.make
         stubBackend = BackendStub[IO](sttp.monad.MonadError[IO]).whenAnyRequest
-          .thenRespondF(gate.get.as(ResponseStub.adjust("", StatusCode.Ok)))
+          .thenRespondF(IO.never)
         backendAllocated <- SmetricsBackend.default1(stubBackend, registry).allocated
         (backend, release) = backendAllocated
         fiber <- basicRequest.get(`/`).send(backend).start
