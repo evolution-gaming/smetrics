@@ -136,6 +136,78 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
     }.run()
   }
 
+  test("latency histogram can be labelled by response status") {
+    runIO {
+      val stubBackend = SttpBackendStub[IO, Any](sttp.monad.MonadError[IO]).whenAnyRequest.thenRespondNotFound()
+
+      val resource = for {
+        registry <- InMemoryCollectorRegistry.make.toResource
+        latency <- registry.histogram(
+          name = MetricNames.latency,
+          help = "Request latency in seconds",
+          buckets = Buckets(NonEmptyList.fromListUnsafe(DefaultBuckets)),
+          labels = LabelNames("method", "status"),
+        )
+        backend = SmetricsBackend(
+          stubBackend,
+          latencyMapper = { (req, outcome) =>
+            latency.labels(methodLabel(req), outcome.fold(_ => "failure", statusLabel)).some
+          },
+          inProgressMapper = { _ => Option.empty[Gauge[IO]] },
+          successMapper = { (_, _) => Option.empty[Counter[IO]] },
+          errorMapper = { (_, _) => Option.empty[Counter[IO]] },
+          failureMapper = { (_, _) => Option.empty[Counter[IO]] },
+          requestSizeMapper = { _ => Option.empty[Summary[IO]] },
+          responseSizeMapper = { (_, _) => Option.empty[Summary[IO]] },
+        )
+        _ <- Resource.eval(basicRequest.get(`/`).send(backend))
+        events <- registry.events.toResource
+      } yield withClue(events) {
+        events.collect {
+          case MetricEvent(MetricNames.latency, "histogram", List("GET", "4xx"), "observe", _) => ()
+        }.size shouldBe 1
+      }
+
+      resource.use(_.pure[IO])
+    }
+  }
+
+  test("gauge decrement is not lost when latency recording fails") {
+    runIO {
+      val stubBackend = SttpBackendStub[IO, Any](sttp.monad.MonadError[IO]).whenAnyRequest.thenRespondOk()
+
+      val failingLatency: Histogram[IO] = new Histogram[IO] {
+        override def observe(value: Double): IO[Unit] =
+          IO.raiseError(new RuntimeException("metrics store unavailable"))
+      }
+
+      val resource = for {
+        registry <- InMemoryCollectorRegistry.make.toResource
+        inProgress <- registry.gauge(
+          name = MetricNames.inProgress,
+          help = "Number of requests in progress",
+          labels = LabelNames("method"),
+        )
+        backend = SmetricsBackend(
+          stubBackend,
+          latencyMapper = { (_, _) => failingLatency.some },
+          inProgressMapper = { req => inProgress.labels(methodLabel(req)).some },
+          successMapper = { (_, _) => Option.empty[Counter[IO]] },
+          errorMapper = { (_, _) => Option.empty[Counter[IO]] },
+          failureMapper = { (_, _) => Option.empty[Counter[IO]] },
+          requestSizeMapper = { _ => Option.empty[Summary[IO]] },
+          responseSizeMapper = { (_, _) => Option.empty[Summary[IO]] },
+        )
+        _ <- Resource.eval(basicRequest.get(`/`).send(backend))
+        events <- registry.events.toResource
+      } yield withClue(events) {
+        events.count(event => event.name == MetricNames.inProgress && event.op == "dec") shouldBe 1
+      }
+
+      resource.use(_.pure[IO])
+    }
+  }
+
   test("configure prefix") {
     runIO {
       val stubBackend = SttpBackendStub[IO, Any](sttp.monad.MonadError[IO]).whenAnyRequest.thenRespondOk()

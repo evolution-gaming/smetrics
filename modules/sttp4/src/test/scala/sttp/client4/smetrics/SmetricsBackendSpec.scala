@@ -172,7 +172,11 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
         events.size shouldBe 6
         events.count(event => event.name == MetricNames.active && event.op == "dec") shouldBe 1
         events.count(event => event.name == MetricNames.duration && event.op == "observe") shouldBe 1
-        events.count(event => event.metricType == "counter") shouldBe 1
+        // counters reflect the HTTP-level outcome: the response itself was a 2xx, so the body
+        // handling failure is counted as a success, not as an error or failure
+        events.collect {
+          case MetricEvent(MetricNames.success, "counter", List("POST", "2xx"), "inc", 1.0) => ()
+        }.size shouldBe 1
       }
     }.run()
   }
@@ -352,6 +356,38 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
       } yield withClue(finalEvents) {
         activeOps(finalEvents, "inc") shouldBe requestsNumber
         activeOps(finalEvents, "dec") shouldBe requestsNumber
+      }
+    }
+  }
+
+  test("cancelled request decrements the active gauge and counts a failure") {
+    def awaitActiveInc(registry: InMemoryCollectorRegistry): IO[Unit] =
+      registry.events.flatMap { events =>
+        if (events.exists(event => event.name == MetricNames.active && event.op == "inc")) IO.unit
+        else IO.sleep(10.millis) >> awaitActiveInc(registry)
+      }
+
+    runIO {
+      for {
+        gate <- Deferred[IO, Unit]
+        registry <- InMemoryCollectorRegistry.make
+        stubBackend = BackendStub[IO](sttp.monad.MonadError[IO]).whenAnyRequest
+          .thenRespondF(gate.get.as(ResponseStub.adjust("", StatusCode.Ok)))
+        backendAllocated <- SmetricsBackend.default1(stubBackend, registry).allocated
+        (backend, release) = backendAllocated
+        fiber <- basicRequest.get(`/`).send(backend).start
+        _ <- awaitActiveInc(registry)
+        _ <- fiber.cancel
+        events <- registry.events
+        _ <- release
+      } yield withClue(events) {
+        events.size shouldBe 4
+        events.count(event => event.name == MetricNames.active && event.op == "inc") shouldBe 1
+        events.count(event => event.name == MetricNames.active && event.op == "dec") shouldBe 1
+        events.count(event => event.name == MetricNames.duration && event.op == "observe") shouldBe 1
+        events.collect {
+          case MetricEvent(MetricNames.failure, "counter", List("GET"), "inc", 1.0) => ()
+        }.size shouldBe 1
       }
     }
   }

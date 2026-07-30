@@ -43,13 +43,13 @@ import scala.concurrent.duration.{FiniteDuration, SECONDS}
  * You can customize the metric name prefix:
  *
  * {{{
- * SmetricsBackend(backend, registry, prefix = "custom_")
+ * SmetricsBackend.default1(backend, registry, prefix = Some("custom_"))
  * }}}
  *
  * This will generate metrics like:
- *   - `custom_request_latency_seconds`
- *   - `custom_requests_in_progress`
- *   - `custom_requests_success_count`
+ *   - `custom_sttp_request_latency_seconds`
+ *   - `custom_sttp_requests_in_progress`
+ *   - `custom_sttp_requests_success_count`
  *   - etc.
  *
  * ==Custom Metric Mappers==
@@ -74,9 +74,10 @@ import scala.concurrent.duration.{FiniteDuration, SECONDS}
  *
  * ==Custom Recording==
  *
- * For example size mappers are typed as [[com.evolutiongaming.smetrics.Summary]], but using an actual
- * summary collector is not mandatory: `Summary` has a single `observe` method, so any recording
- * strategy can be plugged in by implementing it. For example, recording sizes as a histogram
+ * For example, size mappers are typed as [[com.evolutiongaming.smetrics.Summary]], but using an
+ * actual summary collector is not mandatory: `Summary` has a single `observe` method, so any
+ * recording strategy can be plugged in by implementing it. For example, recording sizes as a
+ * histogram:
  *
  * {{{
  * def sizeAsHistogram(histogram: Histogram[F]): Summary[F] =
@@ -270,7 +271,7 @@ object SmetricsBackend {
    * (that requires `MonadThrow`, which this method cannot demand without breaking binary
    * compatibility).
    */
-  @deprecated("Use the overload with an outcome-aware latencyMapper", "2.4.6")
+  @deprecated("Use the overload with an outcome-aware latencyMapper", "2.5.0")
   def apply[F[_]: Clock: Monad, P](
     delegate: SttpBackend[F, P],
     latencyMapper: Request[?, ?] => Option[Histogram[F]],
@@ -364,7 +365,7 @@ object SmetricsBackend {
    * `MonadThrow` overload under the same name would make every existing call site ambiguous
    * (overloads differing only in implicit parameters cannot be resolved).
    */
-  @deprecated("Use default1, which also isolates metric recording failures", "2.4.6")
+  @deprecated("Use default1, which also isolates metric recording failures", "2.5.0")
   def default[F[_]: Clock: Monad, P](
     delegate: SttpBackend[F, P],
     collectorRegistry: CollectorRegistry[F],
@@ -444,6 +445,10 @@ object SmetricsBackend {
 
   /**
    * Internal state passed between request lifecycle hooks.
+   *
+   * Unlike the sttp4 counterpart, no exactly-once guard is needed here: the sttp3
+   * [[sttp.client3.listener.RequestListener]] contract invokes exactly one completion hook per
+   * request.
    *
    * @param recordLatency
    *   Effect to record the request latency for a given request outcome

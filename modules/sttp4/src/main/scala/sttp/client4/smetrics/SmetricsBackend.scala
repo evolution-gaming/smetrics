@@ -90,9 +90,10 @@ import scala.concurrent.duration.{FiniteDuration, SECONDS}
  *
  * ==Custom Recording==
  *
- * For example size mappers are typed as [[com.evolutiongaming.smetrics.Summary]], but using an actual
- * summary collector is not mandatory: `Summary` has a single `observe` method, so any recording
- * strategy can be plugged in by implementing it. For example, recording sizes as a histogram
+ * For example, size mappers are typed as [[com.evolutiongaming.smetrics.Summary]], but using an
+ * actual summary collector is not mandatory: `Summary` has a single `observe` method, so any
+ * recording strategy can be plugged in by implementing it. For example, recording sizes as a
+ * histogram:
  *
  * {{{
  * def sizeAsHistogram(histogram: Histogram[F]): Summary[F] =
@@ -111,8 +112,22 @@ import scala.concurrent.duration.{FiniteDuration, SECONDS}
  *   ...
  * )
  * }}}
- * 
+ *
  * Returning `None` from a mapper disables that metric entirely.
+ *
+ * ==Success, Error and Failure Counters==
+ *
+ * The success and error counters reflect the HTTP-level outcome, i.e. the response status code: a
+ * response that is received successfully but fails during body handling (e.g. deserialization) is
+ * still counted by its status code. The failure counter only tracks requests that produced no
+ * response metadata at all (connection errors, timeouts, cancellation).
+ *
+ * ==Streaming Responses==
+ *
+ * For `...Unsafe` response descriptions (e.g. `asStreamUnsafe`), metrics are recorded when the
+ * response is handled, before the body is consumed: the duration reflects time to response handling
+ * rather than time to body completion. This is a deliberate trade-off that keeps the
+ * active-requests gauge accurate even when a streamed body is never fully consumed.
  *
  * ==Labels==
  *
@@ -325,7 +340,7 @@ object SmetricsBackend {
    * (that requires `MonadThrow`, which this method cannot demand without breaking binary
    * compatibility).
    */
-  @deprecated("Use the overload with an outcome-aware durationMapper", "2.4.6")
+  @deprecated("Use the overload with an outcome-aware durationMapper", "2.5.0")
   def apply[F[_]: Clock: Monad: ToTry](
     delegate: Backend[F],
     durationMapper: GenericRequest[?, ?] => Option[Histogram[F]],
@@ -362,7 +377,7 @@ object SmetricsBackend {
    * (that requires `MonadThrow`, which this method cannot demand without breaking binary
    * compatibility).
    */
-  @deprecated("Use the overload with an outcome-aware durationMapper", "2.4.6")
+  @deprecated("Use the overload with an outcome-aware durationMapper", "2.5.0")
   def apply[F[_]: Clock: Monad: ToTry, C](
     delegate: StreamBackend[F, C],
     durationMapper: GenericRequest[?, ?] => Option[Histogram[F]],
@@ -479,7 +494,7 @@ object SmetricsBackend {
    * `MonadThrow` overload under the same name would make every existing call site ambiguous
    * (overloads differing only in implicit parameters cannot be resolved).
    */
-  @deprecated("Use default1, which also isolates metric recording failures", "2.4.6")
+  @deprecated("Use default1, which also isolates metric recording failures", "2.5.0")
   def default[F[_]: Clock: Monad: ToTry](
     delegate: Backend[F],
     collectorRegistry: CollectorRegistry[F],
@@ -503,7 +518,7 @@ object SmetricsBackend {
    * `MonadThrow` overload under the same name would make every existing call site ambiguous
    * (overloads differing only in implicit parameters cannot be resolved).
    */
-  @deprecated("Use default1, which also isolates metric recording failures", "2.4.6")
+  @deprecated("Use default1, which also isolates metric recording failures", "2.5.0")
   def default[F[_]: Clock: Monad: ToTry, C](
     delegate: StreamBackend[F, C],
     collectorRegistry: CollectorRegistry[F],
@@ -596,10 +611,10 @@ object SmetricsBackend {
   private[this] final case class State[F[_]](
     recordDuration: Either[Throwable, ResponseMetadata] => F[Unit],
     decActive: F[Unit],
-    // AtomicBoolean instead of Ref[F, Boolean]: creating a Ref requires a Sync/Ref.Make constraint,
-    // which cannot be added without breaking binary compatibility of the released API; if bin-compat
-    // constraints are ever dropped (e.g. in a 3.0), Ref[F, Boolean] + getAndSet would be the
-    // idiomatic replacement
+    // AtomicBoolean instead of Ref[F, Boolean]: creating a Ref requires a
+    // Sync/Ref.Make constraint, which cannot be added without breaking binary compatibility of
+    // the released API; if bin-compat constraints are ever dropped (e.g. in a 3.0),
+    // Ref[F, Boolean] + getAndSet would be the idiomatic replacement
     recorded: AtomicBoolean,
   )
 
@@ -607,9 +622,12 @@ object SmetricsBackend {
    * Internal RequestListener implementation that records metrics for HTTP requests.
    *
    * Metrics are recorded exactly once per request, by whichever completion hook fires first:
-   *   - `responseBodyReceived` for safe, non-WebSocket requests whose body was fully received
-   *   - `responseHandled` as the fallback for WebSockets, response exceptions raised before the
-   *     body was received, and streaming bodies that are never fully consumed
+   *   - `responseBodyReceived` for safe, non-WebSocket requests: it fires once the body is fully
+   *     received, so their duration is measured to body completion
+   *   - `responseHandled` for WebSockets, response exceptions raised before the body was received,
+   *     and all `...Unsafe` response descriptions, where it fires before `responseBodyReceived`
+   *     (which may never fire for an unconsumed stream): their duration is measured to response
+   *     handling, trading streaming-duration accuracy for a leak-free active gauge
    *   - `exception` for requests that failed without response metadata (including cancellation)
    */
   private[this] class SmetricsListener[F[_]: Clock: Monad: ToTry](
@@ -700,9 +718,10 @@ object SmetricsBackend {
         val _ = ToTry[F].apply(captureResponseMetrics(request, response, state))
       }
 
-    // fallback for requests where responseBodyReceived never fires: WebSockets, response
-    // exceptions raised before the body was received, and streaming bodies that are never
-    // fully consumed
+    // the primary recording path for WebSockets, response exceptions raised before the body was
+    // received, and `...Unsafe` response descriptions (where this hook fires before
+    // responseBodyReceived, which may never fire for an unconsumed stream); a no-op when
+    // responseBodyReceived already recorded
     override def responseHandled(
       request: GenericRequest[?, ?],
       response: ResponseMetadata,
