@@ -9,13 +9,15 @@ import com.evolutiongaming.smetrics.*
 import com.evolutiongaming.smetrics.IOSuite.*
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
+import sttp.capabilities.Effect
 import sttp.client4.*
+import sttp.client4.ResponseException.{DeserializationException, UnexpectedStatusCode}
 import sttp.client4.impl.cats.implicits.*
 import sttp.client4.smetrics.SmetricsBackend.{DefaultBuckets, MetricNames, methodLabel, statusLabel}
 import sttp.client4.smetrics.SmetricsBackendSpec.*
 import sttp.client4.testing.BackendStub
 import sttp.client4.testing.ResponseStub
-import sttp.model.{Header, StatusCode}
+import sttp.model.{Header, ResponseMetadata, StatusCode}
 
 class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
 
@@ -136,6 +138,122 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
         case MetricEvent("http_client_requests_failure", "counter", List("POST"), "inc", 1.0) => 5
       } shouldBe List(1, 2, 3, 4, 5)
     }.run()
+  }
+
+  test("deserialization failure after body received records metrics exactly once") {
+    collect(
+      stub =>
+        stub.whenAnyRequest
+          .thenRespond(
+            ResponseStub.adjust(
+              body = html,
+              code = StatusCode.Ok,
+            ).withContentLength(html.length.toLong),
+          ),
+      backend =>
+        basicRequest
+          .post(`/`)
+          .body(body)
+          .response {
+            asString.map[Either[String, String]] { _ =>
+              throw DeserializationException(
+                "Unknown body",
+                new Exception("Unable to parse"),
+                ResponseMetadata(StatusCode.Ok, "OK", Nil),
+              )
+            }
+          }
+          .send(backend)
+          .attempt,
+    ).map { events =>
+      withClue(events) {
+        events.size shouldBe 6
+        events.count(event => event.name == MetricNames.active && event.op == "dec") shouldBe 1
+        events.count(event => event.name == MetricNames.duration && event.op == "observe") shouldBe 1
+        events.count(event => event.metricType == "counter") shouldBe 1
+      }
+    }.run()
+  }
+
+  test("response exception without received body still records metrics") {
+    collect(
+      stub =>
+        stub.whenAnyRequest
+          .thenThrow(
+            UnexpectedStatusCode("not found", ResponseMetadata(StatusCode.NotFound, "Not Found", Nil)),
+          ),
+      backend => basicRequest.post(`/`).body(body).send(backend).attempt,
+    ).map { events =>
+      withClue(events) {
+        events.count(event => event.name == MetricNames.active && event.op == "dec") shouldBe 1
+        events.count(event => event.name == MetricNames.duration && event.op == "observe") shouldBe 1
+        events.collect {
+          case MetricEvent(MetricNames.error, "counter", List("POST", "4xx"), "inc", 1.0) => ()
+        }.size shouldBe 1
+      }
+    }.run()
+  }
+
+  test("streaming response with body never received still decrements the active gauge") {
+    runIO {
+      // Models a real backend serving an `asStreamUnsafe(...)` response: `send` completes when the
+      // headers arrive, and the `onBodyReceived` callback fires only if the caller fully consumes
+      // the stream - which here never happens.
+      val bodyNeverReceivedBackend: Backend[IO] = new Backend[IO] {
+        override val monad: sttp.monad.MonadError[IO] = sttp.monad.MonadError[IO]
+        override def send[T](request: GenericRequest[T, Any with Effect[IO]]): IO[Response[T]] =
+          IO.pure(ResponseStub.exact("streamed body, never consumed").asInstanceOf[Response[T]])
+        override def close(): IO[Unit] = IO.unit
+      }
+
+      for {
+        registry <- InMemoryCollectorRegistry.make
+        backendAllocated <- SmetricsBackend.default(bodyNeverReceivedBackend, registry).allocated
+        (backend, release) = backendAllocated
+        _ <- basicRequest.get(`/`).send(backend)
+        events <- registry.events
+        _ <- release
+      } yield withClue(events) {
+        events.count(event => event.name == MetricNames.active && event.op == "dec") shouldBe 1
+        events.count(event => event.name == MetricNames.duration && event.op == "observe") shouldBe 1
+      }
+    }
+  }
+
+  test("gauge decrement is not lost when duration recording fails") {
+    runIO {
+      val stubBackend = BackendStub[IO](sttp.monad.MonadError[IO]).whenAnyRequest.thenRespondOk()
+
+      val failingDuration: Histogram[IO] = new Histogram[IO] {
+        override def observe(value: Double): IO[Unit] =
+          IO.raiseError(new RuntimeException("metrics store unavailable"))
+      }
+
+      val resource = for {
+        registry <- InMemoryCollectorRegistry.make.toResource
+        active <- registry.gauge(
+          name = MetricNames.active,
+          help = "Number of active requests",
+          labels = LabelNames("method"),
+        )
+        backend = SmetricsBackend(
+          stubBackend,
+          durationMapper = { _ => failingDuration.some },
+          activeMapper = { req => active.labels(methodLabel(req)).some },
+          successMapper = { (_, _) => Option.empty[Counter[IO]] },
+          errorMapper = { (_, _) => Option.empty[Counter[IO]] },
+          failureMapper = { (_, _) => Option.empty[Counter[IO]] },
+          requestSizeMapper = { _ => Option.empty[Summary[IO]] },
+          responseSizeMapper = { (_, _) => Option.empty[Summary[IO]] },
+        )
+        _ <- basicRequest.get(`/`).send(backend).toResource
+        events <- registry.events.toResource
+      } yield withClue(events) {
+        events.count(event => event.name == MetricNames.active && event.op == "dec") shouldBe 1
+      }
+
+      resource.use(_.pure[IO])
+    }
   }
 
   test("configure prefix") {
