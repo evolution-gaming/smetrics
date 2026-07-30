@@ -8,9 +8,11 @@ import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
-/** Caching a registry must not change initialization semantics: the `*Initialized` variants have to pre-create the
-  * time series for every combination of label values, so that they are exposed on scrape before the first observation.
-  */
+/**
+ * Caching a registry must not change initialization semantics: the `*Initialized` variants have to
+ * pre-create the time series for every combination of label values, so that they are exposed on
+ * scrape before the first observation.
+ */
 class CollectorRegistryCachedInitializedSpec extends AnyWordSpec with Matchers {
 
   import cats.effect.unsafe.implicits.global

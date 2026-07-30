@@ -47,7 +47,8 @@ class CollectorRegistryCachedSpec extends AnyWordSpec with Matchers {
         fail("the test must throw CachedRegistryException")
       } catch {
         case e: Exception =>
-          e.getMessage shouldBe "metric `foo` of type `gauge` with labels [baz] already registered, while new metric tried to be created with labels [ams]"
+          e.getMessage shouldBe
+            "metric `foo` of type `gauge` with labels [baz] already registered, while new metric tried to be created with labels [ams]"
       }
     }
 
@@ -62,7 +63,8 @@ class CollectorRegistryCachedSpec extends AnyWordSpec with Matchers {
         fail("the test must throw CachedRegistryException")
       } catch {
         case e: Exception =>
-          e.getMessage shouldBe "metric `foo` of type `gauge` with labels [baz] already registered, while new metric of type `counter` tried to be created"
+          e.getMessage shouldBe
+            "metric `foo` of type `gauge` with labels [baz] already registered, while new metric of type `counter` tried to be created"
       }
     }
 
