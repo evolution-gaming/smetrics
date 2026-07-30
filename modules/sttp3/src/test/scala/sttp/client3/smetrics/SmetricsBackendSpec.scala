@@ -221,7 +221,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
 
         backend = SmetricsBackend(
           stubBackend,
-          latencyMapper = { req =>
+          latencyMapper = { (req, _) =>
             latency.labels(methodLabel(req), backendLabel(req), resourceLabel(req)).some
           },
           inProgressMapper = { req =>

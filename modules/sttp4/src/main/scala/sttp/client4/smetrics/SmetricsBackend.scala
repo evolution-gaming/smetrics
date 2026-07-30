@@ -12,6 +12,9 @@ import sttp.client4.listener.*
 import sttp.client4.wrappers.FollowRedirectsBackend
 import sttp.model.ResponseMetadata
 
+import java.util.concurrent.atomic.AtomicBoolean
+import scala.concurrent.duration.{FiniteDuration, SECONDS}
+
 /**
  * Factory for creating STTP backends that record metrics using smetrics.
  *
@@ -75,7 +78,7 @@ import sttp.model.ResponseMetadata
  *
  * val backend = SmetricsBackend(
  *   delegate = underlyingBackend,
- *   durationMapper = { req => ??? },
+ *   durationMapper = { (req, outcome) => ??? },
  *   activeMapper = ???,
  *   successMapper = ???,
  *   errorMapper = ???,
@@ -97,6 +100,12 @@ import sttp.model.ResponseMetadata
  * {{{
  * .005, .01, .025, .05, .075, .1, .25, .5, .75, 1, 2.5, 5, 7.5, 10
  * }}}
+ *
+ * ==WebSockets==
+ *
+ * Durations are intentionally not recorded for WebSocket requests, mirroring sttp's own
+ * `PrometheusBackend`: the measured time would cover the whole socket lifetime rather than a
+ * request-response roundtrip. All other metrics are recorded for WebSocket requests as usual.
  *
  * ==Thread Safety==
  *
@@ -208,7 +217,9 @@ object SmetricsBackend {
    * @param delegate
    *   The underlying STTP backend to wrap
    * @param durationMapper
-   *   Function to map a request to a histogram for recording request duration
+   *   Function to map a request and its outcome (the failure, or the response metadata) to a
+   *   histogram for recording request duration. It is resolved when the outcome is known, so label
+   *   values may depend on the response status. Durations are not recorded for WebSocket requests.
    * @param activeMapper
    *   Function to map a request to a gauge for tracking active requests
    * @param successMapper
@@ -228,7 +239,7 @@ object SmetricsBackend {
    */
   def apply[F[_]: Clock: Monad: ToTry](
     delegate: Backend[F],
-    durationMapper: GenericRequest[?, ?] => Option[Histogram[F]],
+    durationMapper: (GenericRequest[?, ?], Either[Throwable, ResponseMetadata]) => Option[Histogram[F]],
     activeMapper: GenericRequest[?, ?] => Option[Gauge[F]],
     successMapper: (GenericRequest[?, ?], ResponseMetadata) => Option[Counter[F]],
     errorMapper: (GenericRequest[?, ?], ResponseMetadata) => Option[Counter[F]],
@@ -255,7 +266,7 @@ object SmetricsBackend {
 
   def apply[F[_]: Clock: Monad: ToTry, C](
     delegate: StreamBackend[F, C],
-    durationMapper: GenericRequest[?, ?] => Option[Histogram[F]],
+    durationMapper: (GenericRequest[?, ?], Either[Throwable, ResponseMetadata]) => Option[Histogram[F]],
     activeMapper: GenericRequest[?, ?] => Option[Gauge[F]],
     successMapper: (GenericRequest[?, ?], ResponseMetadata) => Option[Counter[F]],
     errorMapper: (GenericRequest[?, ?], ResponseMetadata) => Option[Counter[F]],
@@ -279,6 +290,62 @@ object SmetricsBackend {
       ),
     )
   }
+
+  /**
+   * Binary-compatible predecessor of the outcome-aware overload, kept for released API
+   * compatibility.
+   */
+  @deprecated("Use the overload with an outcome-aware durationMapper", "2.4.6")
+  def apply[F[_]: Clock: Monad: ToTry](
+    delegate: Backend[F],
+    durationMapper: GenericRequest[?, ?] => Option[Histogram[F]],
+    activeMapper: GenericRequest[?, ?] => Option[Gauge[F]],
+    successMapper: (GenericRequest[?, ?], ResponseMetadata) => Option[Counter[F]],
+    errorMapper: (GenericRequest[?, ?], ResponseMetadata) => Option[Counter[F]],
+    failureMapper: (GenericRequest[?, ?], Throwable) => Option[Counter[F]],
+    requestSizeMapper: GenericRequest[?, ?] => Option[Summary[F]],
+    responseSizeMapper: (GenericRequest[?, ?], ResponseMetadata) => Option[Summary[F]],
+  ): Backend[F] =
+    apply(
+      delegate = delegate,
+      durationMapper = {
+        (request: GenericRequest[?, ?], _: Either[Throwable, ResponseMetadata]) => durationMapper(request)
+      },
+      activeMapper = activeMapper,
+      successMapper = successMapper,
+      errorMapper = errorMapper,
+      failureMapper = failureMapper,
+      requestSizeMapper = requestSizeMapper,
+      responseSizeMapper = responseSizeMapper,
+    )
+
+  /**
+   * Binary-compatible predecessor of the outcome-aware overload, kept for released API
+   * compatibility.
+   */
+  @deprecated("Use the overload with an outcome-aware durationMapper", "2.4.6")
+  def apply[F[_]: Clock: Monad: ToTry, C](
+    delegate: StreamBackend[F, C],
+    durationMapper: GenericRequest[?, ?] => Option[Histogram[F]],
+    activeMapper: GenericRequest[?, ?] => Option[Gauge[F]],
+    successMapper: (GenericRequest[?, ?], ResponseMetadata) => Option[Counter[F]],
+    errorMapper: (GenericRequest[?, ?], ResponseMetadata) => Option[Counter[F]],
+    failureMapper: (GenericRequest[?, ?], Throwable) => Option[Counter[F]],
+    requestSizeMapper: GenericRequest[?, ?] => Option[Summary[F]],
+    responseSizeMapper: (GenericRequest[?, ?], ResponseMetadata) => Option[Summary[F]],
+  ): StreamBackend[F, C] =
+    apply(
+      delegate = delegate,
+      durationMapper = {
+        (request: GenericRequest[?, ?], _: Either[Throwable, ResponseMetadata]) => durationMapper(request)
+      },
+      activeMapper = activeMapper,
+      successMapper = successMapper,
+      errorMapper = errorMapper,
+      failureMapper = failureMapper,
+      requestSizeMapper = requestSizeMapper,
+      responseSizeMapper = responseSizeMapper,
+    )
 
   /**
    * Creates an STTP backend with automatic metric collection using a CollectorRegistry.
@@ -402,7 +469,7 @@ object SmetricsBackend {
         quantiles = Quantiles.Default,
       )
     } yield new SmetricsListener[F](
-      durationMapper = { req => duration.labels(methodLabel(req)).some },
+      durationMapper = { (req, _) => duration.labels(methodLabel(req)).some },
       activeMapper = { req => active.labels(methodLabel(req)).some },
       successMapper = { (req, rsp) => success.labels(methodLabel(req), statusLabel(rsp)).some },
       errorMapper = { (req, rsp) => error.labels(methodLabel(req), statusLabel(rsp)).some },
@@ -415,41 +482,37 @@ object SmetricsBackend {
    * Internal state passed between request lifecycle hooks.
    *
    * @param recordDuration
-   *   Effect to record the request duration measurement
+   *   Effect to record the request duration for a given request outcome
    * @param decActive
    *   Effect to decrement the active requests gauge
+   * @param recorded
+   *   Guard ensuring metrics are recorded exactly once per request: depending on the response
+   *   handling description, [[sttp.client4.listener.RequestListener]] may invoke several of the
+   *   completion hooks for a single request, or any one of them
    * @tparam F
    *   The effect type
    */
-  private[this] final case class State[F[_]](recordDuration: F[Unit], decActive: F[Unit])
+  private[this] final case class State[F[_]](
+    recordDuration: Either[Throwable, ResponseMetadata] => F[Unit],
+    decActive: F[Unit],
+    // AtomicBoolean instead of Ref[F, Boolean]: creating a Ref requires a Sync/Ref.Make constraint,
+    // which cannot be added without breaking binary compatibility of the released API; if bin-compat
+    // constraints are ever dropped (e.g. in a 3.0), Ref[F, Boolean] + getAndSet would be the
+    // idiomatic replacement
+    recorded: AtomicBoolean,
+  )
 
   /**
    * Internal RequestListener implementation that records metrics for HTTP requests.
    *
-   * This listener hooks into the STTP request lifecycle to:
-   *   - Start duration measurement and increment active gauge before the request
-   *   - Record duration, decrement active gauge, and update counters after the request
-   *   - Handle both successful responses and exceptions
-   *
-   * @param durationMapper
-   *   Function to map a request to a histogram for recording duration
-   * @param activeMapper
-   *   Function to map a request to a gauge for tracking active requests
-   * @param successMapper
-   *   Function to map a request and response to a counter for successful requests
-   * @param errorMapper
-   *   Function to map a request and response to a counter for errored requests
-   * @param failureMapper
-   *   Function to map a request and exception to a counter for failed requests
-   * @param requestSizeMapper
-   *   Function to map a request to a summary for request sizes
-   * @param responseSizeMapper
-   *   Function to map a request and response to a summary for response sizes
-   * @tparam F
-   *   The effect type
+   * Metrics are recorded exactly once per request, by whichever completion hook fires first:
+   *   - `responseBodyReceived` for safe, non-WebSocket requests whose body was fully received
+   *   - `responseHandled` as the fallback for WebSockets, response exceptions raised before the
+   *     body was received, and streaming bodies that are never fully consumed
+   *   - `exception` for requests that failed without response metadata (including cancellation)
    */
   private[this] class SmetricsListener[F[_]: Clock: Monad: ToTry](
-    durationMapper: GenericRequest[?, ?] => Option[Histogram[F]],
+    durationMapper: (GenericRequest[?, ?], Either[Throwable, ResponseMetadata]) => Option[Histogram[F]],
     activeMapper: GenericRequest[?, ?] => Option[Gauge[F]],
     successMapper: (GenericRequest[?, ?], ResponseMetadata) => Option[Counter[F]],
     errorMapper: (GenericRequest[?, ?], ResponseMetadata) => Option[Counter[F]],
@@ -458,155 +521,115 @@ object SmetricsBackend {
     responseSizeMapper: (GenericRequest[?, ?], ResponseMetadata) => Option[Summary[F]],
   ) extends RequestListener[F, State[F]] {
 
-    /**
-     * Called before a request is sent.
-     *
-     * This method:
-     *   - Starts duration measurement if a duration histogram is configured
-     *   - Increments the active gauge if configured
-     *   - Records request size if a summary is configured
-     *
-     * Returns State containing effects to record duration and decrement active gauge.
-     *
-     * @param request
-     *   The HTTP request about to be sent
-     * @return
-     *   State containing cleanup effects to run after the request completes
-     */
+    private val unit = Applicative[F].unit
+
     override def before(request: GenericRequest[?, ?]): F[State[F]] = {
-      val duration = for {
-        duration <- durationMapper(request)
-      } yield
-        for {
-          recordDuration <- MeasureDuration[F].start
-        } yield recordDuration.flatMap { recordDuration =>
-          duration.observe(recordDuration.toUnit(scala.concurrent.duration.SECONDS).toDouble)
-        }
-
-      val active = activeMapper(request)
-
-      val requestSizeEffect = for {
+      val requestSize = for {
         size <- request.contentLength.map(_.toDouble)
         summary <- requestSizeMapper(request)
       } yield summary.observe(size)
 
+      val active = activeMapper(request)
+
       for {
-        recordDuration <- duration match {
-          case Some(recordDuration) if !request.isWebSocket => recordDuration
-          case _ => Applicative[F].unit.pure[F]
-        }
-        _ <- requestSizeEffect.getOrElse(Applicative[F].unit)
-        _ <- active.map(_.inc()).getOrElse(Applicative[F].unit)
-        decActive = active.map(_.dec()).getOrElse(Applicative[F].unit)
-      } yield State(recordDuration = recordDuration, decActive = decActive)
+        elapsed <- MeasureDuration[F].start
+        _ <- requestSize.getOrElse(unit)
+        _ <- active.map(_.inc()).getOrElse(unit)
+      } yield State(
+        recordDuration = recordDuration(request, _, elapsed),
+        decActive = active.map(_.dec()).getOrElse(unit),
+        recorded = new AtomicBoolean(false),
+      )
     }
 
-    /**
-     * Helper method to capture response metrics.
-     *
-     * @param request
-     *   The HTTP request that was sent
-     * @param response
-     *   The HTTP response metadata
-     * @param state
-     *   State containing cleanup effects from before
-     * @return
-     *   Effect completing the metric recording
-     */
+    // durations are intentionally not recorded for WebSocket requests, mirroring sttp's own
+    // PrometheusBackend: the measured time would cover the whole socket lifetime rather than
+    // a request-response roundtrip
+    private def recordDuration(
+      request: GenericRequest[?, ?],
+      outcome: Either[Throwable, ResponseMetadata],
+      elapsed: F[FiniteDuration],
+    ): F[Unit] =
+      if (request.isWebSocket) unit
+      else
+        durationMapper(request, outcome).fold(unit) { histogram =>
+          elapsed.flatMap { elapsed => histogram.observe(elapsed.toUnit(SECONDS)) }
+        }
+
+    // metric recording must never fail the request: when the effect type can handle errors
+    // (which holds for every practical F, e.g. IO), individual metric failures are discarded
+    // and the remaining metrics are still recorded; a MonadThrow constraint would express this
+    // in the signature, but adding it would break binary compatibility of the released API
+    private val discardFailure: F[Unit] => F[Unit] =
+      Monad[F] match {
+        case monadError: MonadError[F, Any] @unchecked => effect => monadError.handleError(effect)(_ => ())
+        case _ => identity
+      }
+
+    private def recordAll(effects: F[Unit]*): F[Unit] =
+      effects.toList.traverse_(discardFailure)
+
+    private def recordOnce(state: State[F])(record: => F[Unit]): F[Unit] =
+      unit.flatMap { _ =>
+        if (state.recorded.compareAndSet(false, true)) record else unit
+      }
+
     private def captureResponseMetrics(
       request: GenericRequest[?, ?],
       response: ResponseMetadata,
       state: State[F],
     ): F[Unit] = {
-      val responseSizeEffect = for {
+      val responseSize = for {
         size <- response.contentLength.map(_.toDouble)
         summary <- responseSizeMapper(request, response)
       } yield summary.observe(size)
 
-      val counter = if (response.isSuccess) {
-        successMapper(request, response)
-      } else {
-        errorMapper(request, response)
-      }
+      val counterMapper = if (response.isSuccess) successMapper else errorMapper
 
-      for {
-        _ <- state.recordDuration
-        _ <- state.decActive
-        _ <- responseSizeEffect.getOrElse(Applicative[F].unit)
-        _ <- counter.fold(Applicative[F].unit)(_.inc())
-      } yield ()
+      recordAll(
+        state.recordDuration(response.asRight),
+        state.decActive,
+        responseSize.getOrElse(unit),
+        counterMapper(request, response).fold(unit)(_.inc()),
+      )
     }
 
-    /**
-     * Called when the response body has been received.
-     *
-     * @param request
-     *   The HTTP request that was sent
-     * @param response
-     *   The HTTP response metadata
-     * @param state
-     *   State containing cleanup effects from before
-     * @return
-     *   Note that this method must run any effects immediately, as it returns a `Unit`, without the
-     *   `F` wrapper.
-     */
     override def responseBodyReceived(
       request: GenericRequest[?, ?],
       response: ResponseMetadata,
       state: State[F],
-    ): Unit = {
-      ToTry[F].apply(captureResponseMetrics(request, response, state))
-      ()
-    }
+    ): Unit =
+      // the listener contract forces a synchronous signature here, so the effect is run via ToTry;
+      // the resulting Try is discarded as captureResponseMetrics already handles metric failures
+      if (state.recorded.compareAndSet(false, true)) {
+        val _ = ToTry[F].apply(captureResponseMetrics(request, response, state))
+      }
 
-    /**
-     * Called when the response has been handled (including WebSocket requests).
-     *
-     * @param request
-     *   The HTTP request that was sent
-     * @param response
-     *   The HTTP response metadata
-     * @param state
-     *   State containing cleanup effects from before
-     * @param e
-     *   Optional exception if response handling failed
-     * @return
-     *   Effect completing the metric recording
-     */
+    // fallback for requests where responseBodyReceived never fires: WebSockets, response
+    // exceptions raised before the body was received, and streaming bodies that are never
+    // fully consumed
     override def responseHandled(
       request: GenericRequest[?, ?],
       response: ResponseMetadata,
       state: State[F],
       e: Option[ResponseException[?]],
     ): F[Unit] =
-      captureResponseMetrics(request, response, state).whenA(request.isWebSocket)
+      recordOnce(state) {
+        captureResponseMetrics(request, response, state)
+      }
 
-    /**
-     * Called when a request throws an exception.
-     *
-     * @param request
-     *   The HTTP request that failed
-     * @param state
-     *   State containing cleanup effects from before
-     * @param e
-     *   The exception that was thrown
-     * @param responseBodyReceivedCalled
-     *   Whether responseBodyReceived was already called
-     * @return
-     *   Effect completing the metric recording
-     */
     override def exception(
       request: GenericRequest[?, ?],
       state: State[F],
       e: Throwable,
       responseBodyReceivedCalled: Boolean,
-    ): F[Unit] = {
-      val record = for {
-        _ <- state.recordDuration
-        _ <- state.decActive
-        _ <- failureMapper(request, e).fold(Applicative[F].unit)(_.inc())
-      } yield ()
-      record.whenA(!responseBodyReceivedCalled)
-    }
+    ): F[Unit] =
+      recordOnce(state) {
+        recordAll(
+          state.recordDuration(e.asLeft),
+          state.decActive,
+          failureMapper(request, e).fold(unit)(_.inc()),
+        )
+      }
   }
 }

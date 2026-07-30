@@ -220,6 +220,42 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
     }
   }
 
+  test("duration histogram can be labelled by response status") {
+    runIO {
+      val stubBackend = BackendStub[IO](sttp.monad.MonadError[IO]).whenAnyRequest.thenRespondNotFound()
+
+      val resource = for {
+        registry <- InMemoryCollectorRegistry.make.toResource
+        duration <- registry.histogram(
+          name = MetricNames.duration,
+          help = "Request duration in seconds",
+          buckets = Buckets(NonEmptyList.fromListUnsafe(DefaultBuckets)),
+          labels = LabelNames("method", "status"),
+        )
+        backend = SmetricsBackend(
+          stubBackend,
+          durationMapper = { (req, outcome) =>
+            duration.labels(methodLabel(req), outcome.fold(_ => "failure", statusLabel)).some
+          },
+          activeMapper = { _ => Option.empty[Gauge[IO]] },
+          successMapper = { (_, _) => Option.empty[Counter[IO]] },
+          errorMapper = { (_, _) => Option.empty[Counter[IO]] },
+          failureMapper = { (_, _) => Option.empty[Counter[IO]] },
+          requestSizeMapper = { _ => Option.empty[Summary[IO]] },
+          responseSizeMapper = { (_, _) => Option.empty[Summary[IO]] },
+        )
+        _ <- basicRequest.get(`/`).send(backend).toResource
+        events <- registry.events.toResource
+      } yield withClue(events) {
+        events.collect {
+          case MetricEvent(MetricNames.duration, "histogram", List("GET", "4xx"), "observe", _) => ()
+        }.size shouldBe 1
+      }
+
+      resource.use(_.pure[IO])
+    }
+  }
+
   test("gauge decrement is not lost when duration recording fails") {
     runIO {
       val stubBackend = BackendStub[IO](sttp.monad.MonadError[IO]).whenAnyRequest.thenRespondOk()
@@ -238,7 +274,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
         )
         backend = SmetricsBackend(
           stubBackend,
-          durationMapper = { _ => failingDuration.some },
+          durationMapper = { (_, _) => failingDuration.some },
           activeMapper = { req => active.labels(methodLabel(req)).some },
           successMapper = { (_, _) => Option.empty[Counter[IO]] },
           errorMapper = { (_, _) => Option.empty[Counter[IO]] },
@@ -341,7 +377,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
 
         backend = SmetricsBackend(
           stubBackend,
-          durationMapper = { req =>
+          durationMapper = { (req, _) =>
             duration.labels(methodLabel(req), backendLabel, resourceLabel).some
           },
           activeMapper = { req =>
