@@ -72,6 +72,32 @@ import scala.concurrent.duration.{FiniteDuration, SECONDS}
  * )
  * }}}
  *
+ * ==Custom Recording==
+ *
+ * For example size mappers are typed as [[com.evolutiongaming.smetrics.Summary]], but using an actual
+ * summary collector is not mandatory: `Summary` has a single `observe` method, so any recording
+ * strategy can be plugged in by implementing it. For example, recording sizes as a histogram
+ *
+ * {{{
+ * def sizeAsHistogram(histogram: Histogram[F]): Summary[F] =
+ *   new Summary[F] {
+ *     def observe(value: Double): F[Unit] =
+ *       histogram.observe(value)
+ *   }
+ *
+ * val backend = SmetricsBackend(
+ *   delegate = underlyingBackend,
+ *   requestSizeMapper = { req =>
+ *     sizeAsHistogram(
+ *       requestSizeHistogram.labels(methodLabel(req))
+ *     ).some
+ *   },
+ *   ...
+ * )
+ * }}}
+ *
+ * Returning `None` from a mapper disables that metric entirely.
+ *
  * ==Labels==
  *
  * By default, the following labels are attached to metrics:
