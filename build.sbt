@@ -65,7 +65,7 @@ lazy val root = project
     publish / skip := true,
     name := "smetrics-parent",
   )
-  .aggregate(smetrics, prometheus, http4s, doobie, prometheus_v1, logback, sttp3, sttp4)
+  .aggregate(smetrics, prometheus, http4s, doobie, prometheus_v1, logback, sttp3, sttp4, threads)
 
 lazy val smetrics = project
   .in(file("smetrics"))
@@ -163,7 +163,21 @@ lazy val sttp4 = project
     libraryDependencies ++= Seq(
       Dependencies.Sttp4.core,
       Dependencies.Sttp4.catsBackend % Test,
-    )
+    ),
+  )
+
+lazy val threads = project
+  .in(file("modules/threads"))
+  .settings(commonSettings)
+  .dependsOn(smetrics % "compile->compile;test->test", prometheus % "test->compile")
+  .settings(
+    name := "smetrics-threads",
+    // Remove this line right after the first release, so the module gets checked like every other one.
+    mimaPreviousArtifacts := Set.empty,
+    libraryDependencies ++= Seq(
+      Cats.effectTestkit % Test,
+      scalatest % Test,
+    ),
   )
 
 def crossSettings[T](scalaVersion: String, if3: Seq[T], if2: Seq[T]): Seq[T] = {
