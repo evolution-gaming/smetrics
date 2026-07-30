@@ -2,6 +2,7 @@ package sttp.client4.smetrics
 
 import cats.data.NonEmptyList
 import cats.effect.*
+import cats.effect.std.Semaphore
 import cats.effect.unsafe.implicits.global
 import cats.syntax.all.*
 import com.evolutiongaming.catshelper.ToTry
@@ -9,13 +10,17 @@ import com.evolutiongaming.smetrics.*
 import com.evolutiongaming.smetrics.IOSuite.*
 import org.scalatest.funsuite.AsyncFunSuite
 import org.scalatest.matchers.should.Matchers
+import sttp.capabilities.Effect
 import sttp.client4.*
+import sttp.client4.ResponseException.{DeserializationException, UnexpectedStatusCode}
 import sttp.client4.impl.cats.implicits.*
 import sttp.client4.smetrics.SmetricsBackend.{DefaultBuckets, MetricNames, methodLabel, statusLabel}
 import sttp.client4.smetrics.SmetricsBackendSpec.*
 import sttp.client4.testing.BackendStub
 import sttp.client4.testing.ResponseStub
-import sttp.model.{Header, StatusCode}
+import sttp.model.{Header, ResponseMetadata, StatusCode}
+
+import scala.concurrent.duration.*
 
 class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
 
@@ -32,7 +37,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
     for {
       registry <- InMemoryCollectorRegistry.make
       backendAllocated <- SmetricsBackend
-        .default(
+        .default1(
           stub(BackendStub[IO](sttp.monad.MonadError[IO])),
           registry,
         )
@@ -138,6 +143,255 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
     }.run()
   }
 
+  test("deserialization failure after body received records metrics exactly once") {
+    collect(
+      stub =>
+        stub.whenAnyRequest
+          .thenRespond(
+            ResponseStub.adjust(
+              body = html,
+              code = StatusCode.Ok,
+            ).withContentLength(html.length.toLong),
+          ),
+      backend =>
+        basicRequest
+          .post(`/`)
+          .body(body)
+          .response {
+            asString.map[Either[String, String]] { _ =>
+              throw DeserializationException(
+                "Unknown body",
+                new Exception("Unable to parse"),
+                ResponseMetadata(StatusCode.Ok, "OK", Nil),
+              )
+            }
+          }
+          .send(backend)
+          .attempt,
+    ).map { events =>
+      withClue(events) {
+        events.size shouldBe 6
+        events.count(event => event.name == MetricNames.active && event.op == "dec") shouldBe 1
+        events.count(event => event.name == MetricNames.duration && event.op == "observe") shouldBe 1
+        // counters reflect the HTTP-level outcome: the response itself was a 2xx, so the body
+        // handling failure is counted as a success, not as an error or failure
+        events.collect {
+          case MetricEvent(MetricNames.success, "counter", List("POST", "2xx"), "inc", 1.0) => ()
+        }.size shouldBe 1
+      }
+    }.run()
+  }
+
+  test("response exception without received body still records metrics") {
+    collect(
+      stub =>
+        stub.whenAnyRequest
+          .thenThrow(
+            UnexpectedStatusCode("not found", ResponseMetadata(StatusCode.NotFound, "Not Found", Nil)),
+          ),
+      backend => basicRequest.post(`/`).body(body).send(backend).attempt,
+    ).map { events =>
+      withClue(events) {
+        events.count(event => event.name == MetricNames.active && event.op == "dec") shouldBe 1
+        events.count(event => event.name == MetricNames.duration && event.op == "observe") shouldBe 1
+        events.collect {
+          case MetricEvent(MetricNames.error, "counter", List("POST", "4xx"), "inc", 1.0) => ()
+        }.size shouldBe 1
+      }
+    }.run()
+  }
+
+  test("streaming response with body never received still decrements the active gauge") {
+    runIO {
+      // Models a real backend serving an `asStreamUnsafe(...)` response: `send` completes when the
+      // headers arrive, and the `onBodyReceived` callback fires only if the caller fully consumes
+      // the stream - which here never happens.
+      val bodyNeverReceivedBackend: Backend[IO] = new Backend[IO] {
+        override val monad: sttp.monad.MonadError[IO] = sttp.monad.MonadError[IO]
+        override def send[T](request: GenericRequest[T, Any with Effect[IO]]): IO[Response[T]] =
+          IO.pure(ResponseStub.exact("streamed body, never consumed").asInstanceOf[Response[T]])
+        override def close(): IO[Unit] = IO.unit
+      }
+
+      for {
+        registry <- InMemoryCollectorRegistry.make
+        backendAllocated <- SmetricsBackend.default1(bodyNeverReceivedBackend, registry).allocated
+        (backend, release) = backendAllocated
+        _ <- basicRequest.get(`/`).send(backend)
+        events <- registry.events
+        _ <- release
+      } yield withClue(events) {
+        events.count(event => event.name == MetricNames.active && event.op == "dec") shouldBe 1
+        events.count(event => event.name == MetricNames.duration && event.op == "observe") shouldBe 1
+      }
+    }
+  }
+
+  test("duration histogram can be labelled by response status") {
+    runIO {
+      val stubBackend = BackendStub[IO](sttp.monad.MonadError[IO]).whenAnyRequest.thenRespondNotFound()
+
+      val resource = for {
+        registry <- InMemoryCollectorRegistry.make.toResource
+        duration <- registry.histogram(
+          name = MetricNames.duration,
+          help = "Request duration in seconds",
+          buckets = Buckets(NonEmptyList.fromListUnsafe(DefaultBuckets)),
+          labels = LabelNames("method", "status"),
+        )
+        backend = SmetricsBackend(
+          stubBackend,
+          durationMapper = { (req, outcome) =>
+            duration.labels(methodLabel(req), outcome.fold(_ => "failure", statusLabel)).some
+          },
+          activeMapper = { _ => Option.empty[Gauge[IO]] },
+          successMapper = { (_, _) => Option.empty[Counter[IO]] },
+          errorMapper = { (_, _) => Option.empty[Counter[IO]] },
+          failureMapper = { (_, _) => Option.empty[Counter[IO]] },
+          requestSizeMapper = { _ => Option.empty[Summary[IO]] },
+          responseSizeMapper = { (_, _) => Option.empty[Summary[IO]] },
+        )
+        _ <- basicRequest.get(`/`).send(backend).toResource
+        events <- registry.events.toResource
+      } yield withClue(events) {
+        events.collect {
+          case MetricEvent(MetricNames.duration, "histogram", List("GET", "4xx"), "observe", _) => ()
+        }.size shouldBe 1
+      }
+
+      resource.use(_.pure[IO])
+    }
+  }
+
+  test("gauge decrement is not lost when duration recording fails") {
+    runIO {
+      val stubBackend = BackendStub[IO](sttp.monad.MonadError[IO]).whenAnyRequest.thenRespondOk()
+
+      val failingDuration: Histogram[IO] = new Histogram[IO] {
+        override def observe(value: Double): IO[Unit] =
+          IO.raiseError(new RuntimeException("metrics store unavailable"))
+      }
+
+      val resource = for {
+        registry <- InMemoryCollectorRegistry.make.toResource
+        active <- registry.gauge(
+          name = MetricNames.active,
+          help = "Number of active requests",
+          labels = LabelNames("method"),
+        )
+        backend = SmetricsBackend(
+          stubBackend,
+          durationMapper = { (_, _) => failingDuration.some },
+          activeMapper = { req => active.labels(methodLabel(req)).some },
+          successMapper = { (_, _) => Option.empty[Counter[IO]] },
+          errorMapper = { (_, _) => Option.empty[Counter[IO]] },
+          failureMapper = { (_, _) => Option.empty[Counter[IO]] },
+          requestSizeMapper = { _ => Option.empty[Summary[IO]] },
+          responseSizeMapper = { (_, _) => Option.empty[Summary[IO]] },
+        )
+        _ <- basicRequest.get(`/`).send(backend).toResource
+        events <- registry.events.toResource
+      } yield withClue(events) {
+        events.count(event => event.name == MetricNames.active && event.op == "dec") shouldBe 1
+      }
+
+      resource.use(_.pure[IO])
+    }
+  }
+
+  test("mappers returning None disable all metrics") {
+    runIO {
+      val stubBackend = BackendStub[IO](sttp.monad.MonadError[IO]).whenAnyRequest.thenRespondOk()
+
+      for {
+        registry <- InMemoryCollectorRegistry.make
+        backend = SmetricsBackend(
+          stubBackend,
+          durationMapper = { (_, _) => Option.empty[Histogram[IO]] },
+          activeMapper = { _ => Option.empty[Gauge[IO]] },
+          successMapper = { (_, _) => Option.empty[Counter[IO]] },
+          errorMapper = { (_, _) => Option.empty[Counter[IO]] },
+          failureMapper = { (_, _) => Option.empty[Counter[IO]] },
+          requestSizeMapper = { _ => Option.empty[Summary[IO]] },
+          responseSizeMapper = { (_, _) => Option.empty[Summary[IO]] },
+        )
+        response <- basicRequest.post(`/`).body(body).send(backend)
+        events <- registry.events
+      } yield {
+        response.code shouldBe StatusCode.Ok
+        events shouldBe empty
+      }
+    }
+  }
+
+  test("active gauge reflects in-flight requests under concurrency") {
+    val requestsNumber = 5
+
+    def activeOps(events: Vector[MetricEvent], op: String): Int =
+      events.count(event => event.name == MetricNames.active && event.op == op)
+
+    def awaitInFlight(registry: InMemoryCollectorRegistry, expected: Int): IO[Vector[MetricEvent]] =
+      registry.events.flatMap { events =>
+        if (activeOps(events, "inc") >= expected) IO.pure(events)
+        else IO.sleep(10.millis) >> awaitInFlight(registry, expected)
+      }
+
+    runIO {
+      for {
+        gate <- Semaphore[IO](0)
+        registry <- InMemoryCollectorRegistry.make
+        stubBackend = BackendStub[IO](sttp.monad.MonadError[IO]).whenAnyRequest
+          .thenRespondF(gate.acquire.as(ResponseStub.adjust("", StatusCode.Ok)))
+        backendAllocated <- SmetricsBackend.default1(stubBackend, registry).allocated
+        (backend, release) = backendAllocated
+        fibers <- basicRequest.get(`/`).send(backend).start.replicateA(requestsNumber)
+        inFlightEvents <- awaitInFlight(registry, requestsNumber)
+        _ = withClue(inFlightEvents) {
+          activeOps(inFlightEvents, "inc") shouldBe requestsNumber
+          activeOps(inFlightEvents, "dec") shouldBe 0
+        }
+        _ <- gate.releaseN(requestsNumber.toLong)
+        _ <- fibers.traverse_(_.join)
+        finalEvents <- registry.events
+        _ <- release
+      } yield withClue(finalEvents) {
+        activeOps(finalEvents, "inc") shouldBe requestsNumber
+        activeOps(finalEvents, "dec") shouldBe requestsNumber
+      }
+    }
+  }
+
+  test("cancelled request decrements the active gauge and counts a failure") {
+    def awaitActiveInc(registry: InMemoryCollectorRegistry): IO[Unit] =
+      registry.events.flatMap { events =>
+        if (events.exists(event => event.name == MetricNames.active && event.op == "inc")) IO.unit
+        else IO.sleep(10.millis) >> awaitActiveInc(registry)
+      }
+
+    runIO {
+      for {
+        registry <- InMemoryCollectorRegistry.make
+        stubBackend = BackendStub[IO](sttp.monad.MonadError[IO]).whenAnyRequest
+          .thenRespondF(IO.never)
+        backendAllocated <- SmetricsBackend.default1(stubBackend, registry).allocated
+        (backend, release) = backendAllocated
+        fiber <- basicRequest.get(`/`).send(backend).start
+        _ <- awaitActiveInc(registry)
+        _ <- fiber.cancel
+        events <- registry.events
+        _ <- release
+      } yield withClue(events) {
+        events.size shouldBe 4
+        events.count(event => event.name == MetricNames.active && event.op == "inc") shouldBe 1
+        events.count(event => event.name == MetricNames.active && event.op == "dec") shouldBe 1
+        events.count(event => event.name == MetricNames.duration && event.op == "observe") shouldBe 1
+        events.collect {
+          case MetricEvent(MetricNames.failure, "counter", List("GET"), "inc", 1.0) => ()
+        }.size shouldBe 1
+      }
+    }
+  }
+
   test("configure prefix") {
     runIO {
       val stubBackend = BackendStub[IO](sttp.monad.MonadError[IO]).whenAnyRequest.thenRespondOk()
@@ -145,7 +399,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
       for {
         registry <- InMemoryCollectorRegistry.make
         backendAllocated <- SmetricsBackend
-          .default(
+          .default1(
             stubBackend,
             registry,
             prefix = Some("prefix_"),
@@ -223,7 +477,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
 
         backend = SmetricsBackend(
           stubBackend,
-          durationMapper = { req =>
+          durationMapper = { (req, _) =>
             duration.labels(methodLabel(req), backendLabel, resourceLabel).some
           },
           activeMapper = { req =>
