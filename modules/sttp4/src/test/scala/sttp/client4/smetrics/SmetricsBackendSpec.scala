@@ -19,6 +19,8 @@ import sttp.client4.testing.BackendStub
 import sttp.client4.testing.ResponseStub
 import sttp.model.{Header, ResponseMetadata, StatusCode}
 
+import scala.concurrent.duration.*
+
 class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
 
   implicit val tt: ToTry[IO] = ToTry.ioToTry
@@ -289,6 +291,68 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
       }
 
       resource.use(_.pure[IO])
+    }
+  }
+
+  test("mappers returning None disable all metrics") {
+    runIO {
+      val stubBackend = BackendStub[IO](sttp.monad.MonadError[IO]).whenAnyRequest.thenRespondOk()
+
+      for {
+        registry <- InMemoryCollectorRegistry.make
+        backend = SmetricsBackend(
+          stubBackend,
+          durationMapper = { (_, _) => Option.empty[Histogram[IO]] },
+          activeMapper = { _ => Option.empty[Gauge[IO]] },
+          successMapper = { (_, _) => Option.empty[Counter[IO]] },
+          errorMapper = { (_, _) => Option.empty[Counter[IO]] },
+          failureMapper = { (_, _) => Option.empty[Counter[IO]] },
+          requestSizeMapper = { _ => Option.empty[Summary[IO]] },
+          responseSizeMapper = { (_, _) => Option.empty[Summary[IO]] },
+        )
+        response <- basicRequest.post(`/`).body(body).send(backend)
+        events <- registry.events
+      } yield {
+        response.code shouldBe StatusCode.Ok
+        events shouldBe empty
+      }
+    }
+  }
+
+  test("active gauge reflects in-flight requests under concurrency") {
+    val requestsNumber = 5
+
+    def activeOps(events: Vector[MetricEvent], op: String): Int =
+      events.count(event => event.name == MetricNames.active && event.op == op)
+
+    def awaitInFlight(registry: InMemoryCollectorRegistry, expected: Int): IO[Vector[MetricEvent]] =
+      registry.events.flatMap { events =>
+        if (activeOps(events, "inc") >= expected) IO.pure(events)
+        else IO.sleep(10.millis) >> awaitInFlight(registry, expected)
+      }
+
+    runIO {
+      for {
+        gate <- Deferred[IO, Unit]
+        registry <- InMemoryCollectorRegistry.make
+        stubBackend = BackendStub[IO](sttp.monad.MonadError[IO]).whenAnyRequest
+          .thenRespondF(gate.get.as(ResponseStub.adjust("", StatusCode.Ok)))
+        backendAllocated <- SmetricsBackend.default1(stubBackend, registry).allocated
+        (backend, release) = backendAllocated
+        fibers <- basicRequest.get(`/`).send(backend).start.replicateA(requestsNumber)
+        inFlightEvents <- awaitInFlight(registry, requestsNumber)
+        _ = withClue(inFlightEvents) {
+          activeOps(inFlightEvents, "inc") shouldBe requestsNumber
+          activeOps(inFlightEvents, "dec") shouldBe 0
+        }
+        _ <- gate.complete(())
+        _ <- fibers.traverse_(_.join)
+        finalEvents <- registry.events
+        _ <- release
+      } yield withClue(finalEvents) {
+        activeOps(finalEvents, "inc") shouldBe requestsNumber
+        activeOps(finalEvents, "dec") shouldBe requestsNumber
+      }
     }
   }
 
