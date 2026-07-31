@@ -3,10 +3,10 @@ import com.typesafe.tools.mima.core.*
 
 lazy val commonSettings = Seq(
   organization := "com.evolutiongaming",
-  homepage := Some(url("https://github.com/evolution-gaming/smetrics")),
+  homepage := Some(uri("https://github.com/evolution-gaming/smetrics")),
   startYear := Some(2019),
   organizationName := "Evolution",
-  organizationHomepage := Some(url("https://evolution.com")),
+  organizationHomepage := Some(uri("https://evolution.com")),
   versionPolicyIntention := Compatibility.BinaryCompatible,
   crossScalaVersions := Seq("2.13.18", "3.3.8"),
   scalaVersion := crossScalaVersions.value.head,
@@ -35,10 +35,24 @@ lazy val commonSettings = Seq(
   libraryDependencies ++= crossSettings(
     scalaVersion.value,
     if3 = Nil,
-    if2 = List(compilerPlugin("org.typelevel" % "kind-projector" % "0.13.4" cross CrossVersion.full)),
+    if2 = List(compilerPlugin(("org.typelevel" % "kind-projector" % "0.13.4").cross(CrossVersion.full))),
   ),
+  // -Wnonunit-statement (added in sbt-scalac-opts-plugin 0.1.0) flags ScalaTest's
+  // `x shouldEqual y` used as a non-final statement; too noisy to fix across specs right now.
+  Test / scalacOptions -= "-Wnonunit-statement",
+  // Under sbt 2 the compile cache can skip re-creating scoverage's data directory after `clean`.
+  // When a module's instrumented code runs inside another module's forked test JVM (before that
+  // module's own tests, if any, have run), scoverage.Invoker then crashes writing measurements to
+  // the missing directory. Ensure it always exists after compile whenever coverage is enabled.
+  Compile / compile := Def.uncached {
+    val compiled = (Compile / compile).value
+    if (coverageEnabled.value) {
+      val _ = (crossTarget.value / "scoverage-data").mkdirs()
+    }
+    compiled
+  },
   publishTo := Some(Resolver.evolutionReleases),
-  licenses := Seq(("MIT", url("https://opensource.org/licenses/MIT"))),
+  licenses := Seq(("MIT", uri("https://opensource.org/licenses/MIT"))),
   Compile / doc / scalacOptions += "-no-link-warnings",
 )
 
@@ -59,9 +73,9 @@ ThisBuild / libraryDependencySchemes ++= Seq(
 )
 
 val alias: Seq[sbt.Def.Setting[?]] =
-  addCommandAlias("check", "all versionPolicyCheck Compile/doc") ++
-    addCommandAlias("build", "+all compile test") ++
-    addCommandAlias("fmt", "+all scalafmtAll scalafmtSbt")
+  addCommandAlias("check", "all scalafmtCheckRepo versionPolicyCheck Compile/doc") ++
+    addCommandAlias("build", "+all compile testFull") ++
+    addCommandAlias("fmt", "+all scalafmtRepo")
 
 lazy val root = project
   .in(file("."))
