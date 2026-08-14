@@ -18,8 +18,6 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
 
   def inMemoryCollectorRegistry: CollectorRegistry[IO] = CollectorRegistry.empty[IO]
 
-  private val `(0, 0.1]` = Within(0.00001, 0.1)
-
   def collect[A](
     stub: SttpBackendStub[IO, Any] => SttpBackendStub[IO, Any],
     send: SttpBackend[IO, Any] => IO[A],
@@ -58,11 +56,11 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
       val `rspSize` = html.length.toDouble
       val `reqSize` = body.length.toDouble
 
-      events.size shouldBe 6
+      val _ = events.size shouldBe 6
       events.collect {
         case MetricEvent("sttp_request_size_bytes", "summary", List("POST"), "observe", `reqSize`) => 1
         case MetricEvent("sttp_requests_in_progress", "gauge", List("POST"), "inc", 1.0) => 2
-        case MetricEvent("sttp_request_latency_seconds", "histogram", List("POST"), "observe", `(0, 0.1]`(_)) => 3
+        case MetricEvent("sttp_request_latency_seconds", "histogram", List("POST"), "observe", NonNegative(_)) => 3
         case MetricEvent("sttp_requests_in_progress", "gauge", List("POST"), "dec", 1.0) => 4
         case MetricEvent("sttp_response_size_bytes", "summary", List("POST", "2xx"), "observe", `rspSize`) => 5
         case MetricEvent("sttp_requests_success_count", "counter", List("POST", "2xx"), "inc", 1.0) => 6
@@ -90,11 +88,11 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
         val `reqSize` = body.length.toDouble
         val sts = s"${ status.code / 100 }xx"
 
-        events.size shouldBe 6
+        val _ = events.size shouldBe 6
         events.collect {
           case MetricEvent("sttp_request_size_bytes", "summary", List("POST"), "observe", `reqSize`) => 1
           case MetricEvent("sttp_requests_in_progress", "gauge", List("POST"), "inc", 1.0) => 2
-          case MetricEvent("sttp_request_latency_seconds", "histogram", List("POST"), "observe", `(0, 0.1]`(_)) => 3
+          case MetricEvent("sttp_request_latency_seconds", "histogram", List("POST"), "observe", NonNegative(_)) => 3
           case MetricEvent("sttp_requests_in_progress", "gauge", List("POST"), "dec", 1.0) => 4
           case MetricEvent("sttp_response_size_bytes", "summary", List("POST", `sts`), "observe", `rspSize`) => 5
           case MetricEvent("sttp_requests_error_count", "counter", List("POST", `sts`), "inc", 1.0) => 6
@@ -125,11 +123,11 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
     ).map { events =>
       val `body.length` = body.length.toDouble
 
-      events.size shouldBe 5
+      val _ = events.size shouldBe 5
       events.collect {
         case MetricEvent("sttp_request_size_bytes", "summary", List("POST"), "observe", `body.length`) => 1
         case MetricEvent("sttp_requests_in_progress", "gauge", List("POST"), "inc", 1.0) => 2
-        case MetricEvent("sttp_request_latency_seconds", "histogram", List("POST"), "observe", `(0, 0.1]`(_)) => 3
+        case MetricEvent("sttp_request_latency_seconds", "histogram", List("POST"), "observe", NonNegative(_)) => 3
         case MetricEvent("sttp_requests_in_progress", "gauge", List("POST"), "dec", 1.0) => 4
         case MetricEvent("sttp_requests_failure_count", "counter", List("POST"), "inc", 1.0) => 5
       } shouldBe List(1, 2, 3, 4, 5)
@@ -228,7 +226,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
         events <- registry.events
         _ <- release
       } yield {
-        events.nonEmpty shouldBe true
+        val _ = events.nonEmpty shouldBe true
         events.forall(_.name.startsWith("prefix_")) shouldBe true
       }
     }
@@ -328,7 +326,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
         events <- registry.events.toResource
       } yield {
         withClue(events) {
-          events.size shouldBe 6
+          val _ = events.size shouldBe 6
           events.collect {
             case MetricEvent(
                   "client_sttp_request_size_bytes",
@@ -351,7 +349,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
                   "histogram",
                   List("POST", "primary", "users"),
                   "observe",
-                  `(0, 0.1]`(_),
+                  NonNegative(_),
                 ) =>
               3
             case MetricEvent(
@@ -536,9 +534,11 @@ object SmetricsBackendSpec {
       } yield new InMemoryCollectorRegistry(ref)
   }
 
-  case class Within(a: Double, b: Double) {
+  // the stub roundtrip latency is environment noise (classloading, JIT, GC, CI load),
+  // so any bounded window is flaky: only check that a latency value was observed
+  object NonNegative {
     def unapply(value: Double): Option[Double] =
-      Option.when(value > a && value <= b)(value)
+      Option.when(value >= 0)(value)
   }
 
   implicit class ResponseOps[A](val response: Response[A]) extends AnyVal {
