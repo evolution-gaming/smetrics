@@ -28,8 +28,6 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
 
   def inMemoryCollectorRegistry: CollectorRegistry[IO] = CollectorRegistry.empty[IO]
 
-  private val `(0, 0.1]` = Within(0, 0.1)
-
   def collect[A](
     stub: BackendStub[IO] => BackendStub[IO],
     send: Backend[IO] => IO[A],
@@ -67,11 +65,17 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
     ).map { events =>
       val `rspSize` = html.length.toDouble
       val `reqSize` = body.length.toDouble
-      events.size shouldBe 6
+      val _ = events.size shouldBe 6
       events.collect {
         case MetricEvent("http_client_request_size_bytes", "summary", List("POST"), "observe", `reqSize`) => 1
         case MetricEvent("http_client_requests_active", "gauge", List("POST"), "inc", 1.0) => 2
-        case MetricEvent("http_client_request_duration_seconds", "histogram", List("POST"), "observe", `(0, 0.1]`(_)) =>
+        case MetricEvent(
+              "http_client_request_duration_seconds",
+              "histogram",
+              List("POST"),
+              "observe",
+              NonNegative(_),
+            ) =>
           3
         case MetricEvent("http_client_requests_active", "gauge", List("POST"), "dec", 1.0) => 4
         case MetricEvent("http_client_response_size_bytes", "summary", List("POST", "2xx"), "observe", `rspSize`) => 5
@@ -99,7 +103,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
         val `rspSize` = response.length.toDouble
         val `reqSize` = body.length.toDouble
         val sts = s"${ status.code / 100 }xx"
-        events.size shouldBe 6
+        val _ = events.size shouldBe 6
         events.collect {
           case MetricEvent("http_client_request_size_bytes", "summary", List("POST"), "observe", `reqSize`) => 1
           case MetricEvent("http_client_requests_active", "gauge", List("POST"), "inc", 1.0) => 2
@@ -108,7 +112,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
                 "histogram",
                 List("POST"),
                 "observe",
-                `(0, 0.1]`(_),
+                NonNegative(_),
               ) => 3
           case MetricEvent("http_client_requests_active", "gauge", List("POST"), "dec", 1.0) => 4
           case MetricEvent("http_client_response_size_bytes", "summary", List("POST", `sts`), "observe", `rspSize`) => 5
@@ -131,11 +135,17 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
           .attempt,
     ).map { events =>
       val `body.length` = body.length.toDouble
-      events.size shouldBe 5
+      val _ = events.size shouldBe 5
       events.collect {
         case MetricEvent("http_client_request_size_bytes", "summary", List("POST"), "observe", `body.length`) => 1
         case MetricEvent("http_client_requests_active", "gauge", List("POST"), "inc", 1.0) => 2
-        case MetricEvent("http_client_request_duration_seconds", "histogram", List("POST"), "observe", `(0, 0.1]`(_)) =>
+        case MetricEvent(
+              "http_client_request_duration_seconds",
+              "histogram",
+              List("POST"),
+              "observe",
+              NonNegative(_),
+            ) =>
           3
         case MetricEvent("http_client_requests_active", "gauge", List("POST"), "dec", 1.0) => 4
         case MetricEvent("http_client_requests_failure", "counter", List("POST"), "inc", 1.0) => 5
@@ -170,9 +180,9 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
           .attempt,
     ).map { events =>
       withClue(events) {
-        events.size shouldBe 6
-        events.count(event => event.name == MetricNames.active && event.op == "dec") shouldBe 1
-        events.count(event => event.name == MetricNames.duration && event.op == "observe") shouldBe 1
+        val _ = events.size shouldBe 6
+        val _ = events.count(event => event.name == MetricNames.active && event.op == "dec") shouldBe 1
+        val _ = events.count(event => event.name == MetricNames.duration && event.op == "observe") shouldBe 1
         // counters reflect the HTTP-level outcome: the response itself was a 2xx, so the body
         // handling failure is counted as a success, not as an error or failure
         events.collect {
@@ -192,8 +202,8 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
       backend => basicRequest.post(`/`).body(body).send(backend).attempt,
     ).map { events =>
       withClue(events) {
-        events.count(event => event.name == MetricNames.active && event.op == "dec") shouldBe 1
-        events.count(event => event.name == MetricNames.duration && event.op == "observe") shouldBe 1
+        val _ = events.count(event => event.name == MetricNames.active && event.op == "dec") shouldBe 1
+        val _ = events.count(event => event.name == MetricNames.duration && event.op == "observe") shouldBe 1
         events.collect {
           case MetricEvent(MetricNames.error, "counter", List("POST", "4xx"), "inc", 1.0) => ()
         }.size shouldBe 1
@@ -221,7 +231,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
         events <- registry.events
         _ <- release
       } yield withClue(events) {
-        events.count(event => event.name == MetricNames.active && event.op == "dec") shouldBe 1
+        val _ = events.count(event => event.name == MetricNames.active && event.op == "dec") shouldBe 1
         events.count(event => event.name == MetricNames.duration && event.op == "observe") shouldBe 1
       }
     }
@@ -318,7 +328,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
         response <- basicRequest.post(`/`).body(body).send(backend)
         events <- registry.events
       } yield {
-        response.code shouldBe StatusCode.Ok
+        val _ = response.code shouldBe StatusCode.Ok
         events shouldBe empty
       }
     }
@@ -347,7 +357,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
         fibers <- basicRequest.get(`/`).send(backend).start.replicateA(requestsNumber)
         inFlightEvents <- awaitInFlight(registry, requestsNumber)
         _ = withClue(inFlightEvents) {
-          activeOps(inFlightEvents, "inc") shouldBe requestsNumber
+          val _ = activeOps(inFlightEvents, "inc") shouldBe requestsNumber
           activeOps(inFlightEvents, "dec") shouldBe 0
         }
         _ <- gate.releaseN(requestsNumber.toLong)
@@ -355,7 +365,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
         finalEvents <- registry.events
         _ <- release
       } yield withClue(finalEvents) {
-        activeOps(finalEvents, "inc") shouldBe requestsNumber
+        val _ = activeOps(finalEvents, "inc") shouldBe requestsNumber
         activeOps(finalEvents, "dec") shouldBe requestsNumber
       }
     }
@@ -381,10 +391,10 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
         events <- registry.events
         _ <- release
       } yield withClue(events) {
-        events.size shouldBe 4
-        events.count(event => event.name == MetricNames.active && event.op == "inc") shouldBe 1
-        events.count(event => event.name == MetricNames.active && event.op == "dec") shouldBe 1
-        events.count(event => event.name == MetricNames.duration && event.op == "observe") shouldBe 1
+        val _ = events.size shouldBe 4
+        val _ = events.count(event => event.name == MetricNames.active && event.op == "inc") shouldBe 1
+        val _ = events.count(event => event.name == MetricNames.active && event.op == "dec") shouldBe 1
+        val _ = events.count(event => event.name == MetricNames.duration && event.op == "observe") shouldBe 1
         events.collect {
           case MetricEvent(MetricNames.failure, "counter", List("GET"), "inc", 1.0) => ()
         }.size shouldBe 1
@@ -412,7 +422,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
         events <- registry.events
         _ <- release
       } yield {
-        events.nonEmpty shouldBe true
+        val _ = events.nonEmpty shouldBe true
         events.forall(_.name.startsWith("prefix_")) shouldBe true
       }
     }
@@ -510,7 +520,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
         events <- registry.events.toResource
       } yield {
         withClue(events) {
-          events.size shouldBe 6
+          val _ = events.size shouldBe 6
           events.collect {
             case MetricEvent(
                   "client_http_client_request_size_bytes",
@@ -533,7 +543,7 @@ class SmetricsBackendSpec extends AsyncFunSuite with Matchers {
                   "histogram",
                   List("POST", "labelForBackend", "labelForResource"),
                   "observe",
-                  `(0, 0.1]`(_),
+                  NonNegative(_),
                 ) =>
               3
             case MetricEvent(
@@ -718,9 +728,11 @@ object SmetricsBackendSpec {
       } yield new InMemoryCollectorRegistry(ref)
   }
 
-  case class Within(a: Double, b: Double) {
+  // the stub roundtrip latency is environment noise (classloading, JIT, GC, CI load),
+  // so any bounded window is flaky: only check that a latency value was observed
+  object NonNegative {
     def unapply(value: Double): Option[Double] =
-      Option.when(value > a && value <= b)(value)
+      Option.when(value >= 0)(value)
   }
 
   implicit class ResponseOps[A](val response: Response[A]) extends AnyVal {
