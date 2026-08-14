@@ -133,7 +133,9 @@ lazy val logback = project
     libraryDependencies ++= Seq(
       Dependencies.PrometheusV1.core,
       Dependencies.Logback.classic,
+      Dependencies.weaver % Test,
     ),
+    testFrameworks += new TestFramework("weaver.framework.CatsEffect"),
     versionPolicyCheck / skip := true,
   )
 
