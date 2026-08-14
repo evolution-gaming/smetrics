@@ -7,4 +7,4 @@ on:
 
 jobs:
   test:
-    uses: evolution-gaming/scala-github-actions/.github/workflows/ci.yml@dde27b9bd793d41d5aacf8fb74403c9de5da1146 # v6.3.0
+    uses: evolution-gaming/scala-github-actions/.github/workflows/ci.yml@22cf717df1fcf8c74ab30834cf90ab9064e93e98 # v6.?.?
