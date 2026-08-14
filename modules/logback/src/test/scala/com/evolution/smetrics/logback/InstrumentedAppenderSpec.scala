@@ -5,6 +5,7 @@ import cats.syntax.all.*
 import ch.qos.logback.classic.spi.LoggingEvent
 import ch.qos.logback.classic.{Level, LoggerContext}
 import ch.qos.logback.core.status.Status
+import com.evolution.smetrics.logback.InstrumentedAppender.{LevelCounters, registerCounters}
 import io.prometheus.metrics.model.registry.{Collector, PrometheusRegistry}
 import io.prometheus.metrics.model.snapshots.CounterSnapshot
 import weaver.SimpleIOSuite
@@ -12,8 +13,6 @@ import weaver.SimpleIOSuite
 import scala.jdk.CollectionConverters.*
 
 object InstrumentedAppenderSpec extends SimpleIOSuite {
-
-  import InstrumentedAppender.{LevelCounters, registerCounters}
 
   test("count log events per level") {
     val levels = List(Level.TRACE, Level.DEBUG, Level.INFO, Level.INFO, Level.WARN, Level.ERROR)
@@ -100,15 +99,9 @@ object InstrumentedAppenderSpec extends SimpleIOSuite {
     val registry: PrometheusRegistry = new PrometheusRegistry() {
       override def register(collector: Collector): Unit = throw new OutOfMemoryError("test")
     }
-    // fatal errors must not go through the IO runtime, hence the manual try/catch
-    val rethrown =
-      try {
-        val _ = registerCounters(registry)
-        false
-      } catch {
-        case _: OutOfMemoryError => true
-      }
-    expect(rethrown)
+    // Either.catchOnly matches on the class and thus, unlike util.Try, sees fatal errors
+    val outcome = Either.catchOnly[OutOfMemoryError](registerCounters(registry))
+    expect(clue(outcome).isLeft)
   }
 
   test("share one JVM-wide registration result between appenders by default") {
