@@ -2,8 +2,8 @@ package com.evolution.smetrics.logback
 
 import cats.effect.IO
 import cats.syntax.all.*
-import ch.qos.logback.classic.{Level, LoggerContext}
 import ch.qos.logback.classic.spi.LoggingEvent
+import ch.qos.logback.classic.{Level, LoggerContext}
 import ch.qos.logback.core.status.Status
 import io.prometheus.metrics.model.registry.{Collector, PrometheusRegistry}
 import io.prometheus.metrics.model.snapshots.CounterSnapshot
@@ -13,7 +13,7 @@ import scala.jdk.CollectionConverters.*
 
 object InstrumentedAppenderSpec extends SimpleIOSuite {
 
-  import InstrumentedAppender.{registerCounters, LevelCounters}
+  import InstrumentedAppender.{LevelCounters, registerCounters}
 
   test("count log events per level") {
     val levels = List(Level.TRACE, Level.DEBUG, Level.INFO, Level.INFO, Level.WARN, Level.ERROR)
