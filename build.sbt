@@ -56,12 +56,6 @@ lazy val commonSettings = Seq(
 ThisBuild / mimaBinaryIssueFilters ++= Seq(
   // add mima check exceptions here, like:
 //  ProblemFilters.exclude[ReversedMissingMethodProblem]("com.evolutiongaming.smetrics.CollectorRegistry.info"),
-
-  // private[this] internals of the sttp backends, not reachable through any public API signature
-  ProblemFilters.exclude[Problem]("sttp.client3.smetrics.SmetricsBackend#State*"),
-  ProblemFilters.exclude[Problem]("sttp.client3.smetrics.SmetricsBackend#PrometheusListener*"),
-  ProblemFilters.exclude[Problem]("sttp.client4.smetrics.SmetricsBackend#State*"),
-  ProblemFilters.exclude[Problem]("sttp.client4.smetrics.SmetricsBackend#SmetricsListener*"),
 )
 
 ThisBuild / libraryDependencySchemes ++= Seq(
@@ -135,8 +129,7 @@ lazy val logback = project
       Dependencies.Logback.classic,
       Dependencies.weaver % Test,
     ),
-    testFrameworks += new TestFramework("weaver.framework.CatsEffect"),
-    versionPolicyCheck / skip := true,
+    testFrameworks += TestFrameworks.WeaverTestCats,
   )
 
 lazy val http4s = project
