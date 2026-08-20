@@ -21,7 +21,7 @@ object Prometheus { prometheus =>
 
       override val registry: CollectorRegistry[F] = CollectorRegistryPrometheus(collectorRegistry)
 
-      override val write004: F[String] = Sync[F].delay {
+      override val write004: F[String] = Sync[F].blocking {
         val writer = new StringWriter
         TextFormat.write004(writer, collectorRegistry.metricFamilySamples)
         writer.toString
