@@ -6,6 +6,7 @@ import io.prometheus.metrics.expositionformats.PrometheusTextFormatWriter
 import io.prometheus.metrics.model.registry.PrometheusRegistry
 
 import java.io.ByteArrayOutputStream
+import java.nio.charset.StandardCharsets
 
 trait Prometheus[F[_]] {
 
@@ -21,11 +22,11 @@ object Prometheus { prometheus =>
 
       override val registry: CollectorRegistry[F] = CollectorRegistryPrometheus(collectorRegistry)
 
-      override val write004: F[String] = Sync[F].delay {
+      override val write004: F[String] = Sync[F].blocking {
         val out = new ByteArrayOutputStream()
         val textFormatWriter = PrometheusTextFormatWriter.builder().setIncludeCreatedTimestamps(false).build()
         textFormatWriter.write(out, collectorRegistry.scrape())
-        out.toString("UTF-8")
+        out.toString(StandardCharsets.UTF_8)
       }
     }
 
