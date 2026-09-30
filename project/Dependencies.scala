@@ -36,7 +36,7 @@ object Dependencies {
   }
 
   object Sttp4 {
-    private val version = "4.0.26"
+    private val version = "4.0.27"
     val core = "com.softwaremill.sttp.client4" %% "core" % version
     val catsBackend = "com.softwaremill.sttp.client4" %% "cats" % version
   }
