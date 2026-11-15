@@ -9,7 +9,7 @@ object Dependencies {
   val weaver = "org.typelevel" %% "weaver-cats" % "0.13.1"
   val `cats-helper` = "com.evolutiongaming" %% "cats-helper" % "3.13.2"
   val http4s = "org.http4s" %% "http4s-core" % "0.23.38"
-  val doobie = "org.typelevel" %% "doobie-core" % "1.0.0-RC13"
+  val doobie = "org.typelevel" %% "doobie-core" % "1.0.0-RC14"
 
   object Cats {
     private val effectVersion = "3.7.1"
