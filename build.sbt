@@ -51,6 +51,17 @@ lazy val commonSettings = Seq(
   publishTo := Some(Resolver.evolutionReleases),
   licenses := Seq(("MIT", uri("https://opensource.org/licenses/MIT"))),
   Compile / doc / scalacOptions += "-no-link-warnings",
+  versionPolicyIgnored ++= {
+    // doobie 1.0.0-RC13 -> 1.0.0-RC14 is accepted:
+    // - release notes (https://github.com/typelevel/doobie/releases/tag/v1.0.0-RC14) declare only `doobie-otel4s`
+    //   as binary incompatible, and it is not used here;
+    // - MiMa additionally reports, in doobie-core/doobie-free, new abstract methods on Query/Query0/Update/Update0
+    //   (statement metadata, runLarge; only breaks code implementing these traits) and changed constructors of
+    //   the LogEvent case classes (new metadata field). smetrics-doobie uses neither (only Transactor/Interpreter/ConnectionOp).
+    if (Dependencies.doobie.revision == "1.0.0-RC14")
+      Seq("org.typelevel" %% "doobie-core", "org.typelevel" %% "doobie-free")
+    else Nil
+  },
 )
 
 ThisBuild / mimaBinaryIssueFilters ++= Seq(
