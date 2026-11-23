@@ -25,7 +25,7 @@ object Dependencies {
   }
 
   object Logback {
-    private val version = "1.6.7"
+    private val version = "1.6.8"
     val classic = "ch.qos.logback" % "logback-classic" % version
   }
 
